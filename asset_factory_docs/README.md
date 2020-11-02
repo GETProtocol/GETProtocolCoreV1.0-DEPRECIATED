@@ -23,13 +23,6 @@ The main take aways for the usage of this type of asset(as it will be used in th
 | Name | Compiler | Address |
 | ------ | ------ | ------ |
 | getNFT Factory V1 | 0.5.0 | [Klaytn Blockchain Main](https://ropsten.etherscan.io) |
-| Priviledge | 721 | [Klaytn Blockchain Testnet](https://ropsten.etherscan.io) |
-| Coupon | 721 | [Ropsten Etherscan](https://ropsten.etherscan.io) |
-| Order | 871 | [Ropsten Etherscan](https://ropsten.etherscan.io/address/0x385fe8146a658aa0ec6a117ce38ed434471bf84c#code) |
-| Batch | 871 | [Ropsten Etherscan](https://ropsten.etherscan.io) |
-| GET | 20 | [Ropsten Etherscan](https://ropsten.etherscan.io) |
-| DAI | 20 | [Ropsten Etherscan](https://ropsten.etherscan.io) |
-
 ---
 
 ### Metadata 1 - Ticketeer & Event Metadata 
