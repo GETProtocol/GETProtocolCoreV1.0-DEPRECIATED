@@ -56,7 +56,9 @@ This action is triggered when a ticket is scanned validated.
 
 Functions A, B & C can only be called by whitelisted addresses(see section 3 of this documentation covering modifiers). If an getNFT owner wants to interact directly with their NFT, they can use the ERC721 functions. 
 
-##### A. primaryMint
+
+
+#### A. primaryMint
 Mint a new getNFT to a destinationAddress(address of buyer of the getNFT). The function will return the nftIndex (uint256) of the issued getNFT. 
 ```javascript
     function primaryMint(address destinationAddress, address ticketeerAddress, string memory ticketMetadata) public onlyMinter  returns (uint256) ;
@@ -65,7 +67,7 @@ This function will emit the following event to the event-log of the GET Factory 
 
 The values passed in the `ticketeerAddress` and `ticketMetadata` are stored immutably in the metadata fields of the ERC721 asset. 
 
-##### B. secondaryTransfer
+#### B. secondaryTransfer
 If a ticket is resold to a other address this function is triggered. The getNFT custody uses a fresh wallet for each getNFT. The `originAddress` needs to be the owner of a getNFT for this function to be successful. 
 
 ```javascript
@@ -74,7 +76,7 @@ If a ticket is resold to a other address this function is triggered. The getNFT 
 This function will emit the following event:  `txSecondary(originAddress, destinationAddress, getAddressOfTicketeer(nftIndex), nftIndex, _timestamp)`.
 
 
-##### C. scanNFT
+#### C. scanNFT
 If a ticket is scanned/validated it's digital twin needs to reflect this new state.
 
 ```javascript
@@ -85,17 +87,63 @@ This function will emit the following event:  `emit txScan(originAddress, destin
 ---
 
 
-## 3. Contract Modifiers (access control) 
-To manage acces the smart ticketing standard contract uses a RoleManager from open zeppelin. This module allows admins to control whom is allowed to access certain functions in the contract. In V0 there are 2 roles. 
-1. Minter/Admin : Set contract variables, proxy adminstration, add/remove addresses to access control etc.
+## 3. Contract Modifiers 
+To manage acces the contract uses the RoleManager modules from open zeppelin.  
+1. Minter/Admin: Set contract variables, proxy adminstration, add/remove addresses to access control etc.
 2. Relayer: Mint NFFs, move NFTs, store metadata in getNFTs etc
 
 In the first versions of the GET Protocol contracts these addresses will be managed and maintained by the GET Protoocol foundation.
 
 ---
 
-## 4. GET Ticket Standard Metadata Specification 
+## 4. getNFT Flexible Metadata Contracts 
 The NFT factory has 2 storage contracts that handle the metadata storage and structure. In order to facilitate changes to the metadata structure the contract allows for the admin to change the metadata storage contracts by setting `address public event_metadata_TE_address;` and `address public ticket_metadata_address`.
+
+
+### 4-A. getNFT ticketIssuer Metadata
+Consumer purchase their tickets from a webshop or platform. The types of data passed per ticketeer integrator might vary, the table below shows several options of the data that can be passed. 
+
+
+| variable              | description                                                                      |   type  | required |
+|-----------------------|----------------------------------------------------------------------------------|:-------:|:--------:|
+| tickeer_address       | Public key hash of the ticketeer.                                                | address |    yes   |
+| ticketeer_name        | Commercial name of the ticketing company / integrator / business.                |  string |    no    |
+| ticketeer_shop_url    | Website of the ticketeers ticket shop / platform (where NFT can be traded)       |  string |    no    |
+| ticketeer_support_url | Website of the ticketeers support department for questions about the NFT/ticket. |  string |    no    |
+| listPointerT          | internal value used to store data this data type in a smart contract efficiently |   uint  |    yes   |
+| tickeer_id            | Internal unique identifier of the ticketeer                                      |   uint  |    yes   |
+
+The `tickeer_address` is the only required field. 
+
+
+### 4-B. getEvent Metadata
+Meta
+
+Storage struct name: `Eventstruct`.
+
+| variable          | description                                                    | type    | required |
+|-------------------|---------------------------------------------------------------|---------|----------|
+| event_address     | Public key hash of the event.                                 | address |    yes   |
+| event_name        | Event slug/name describing the event.                         |  string |    no    |
+| organizer_name    | Slug name of the organizer (or identifier)                    |  string |    no    |
+| event_shop_url    | URL pointing to the primary/secondary/general shop of event.  |  string |    no    |
+| location_cord     | Coordinates of the location of the event.                     |  string |    no    |
+| date_time_gmt     | Date/time the event is scheduled to take place on.            |   uint  |    yes   |
+| ticketeer_address | Address of the ticketeer/issuer that is servicing the event.  | address |    yes   |
+| TicketeerStruct   | Pointer to the storage struct with ticketeer metadat.         | mapping |     -    |
+
+The unique identifier of the event metadata struct is the `event_address`. This public key hash is set by the getNFT custody. Similar to the ticketeer metadata, editing of previously submitted data is only possible by overriding (but using the same primary key - which is always an `address`).
+
+
+### 4-C. getEvent TicketType Metadata 
+Event tickets are often split up in different types (general admission, weekender, VIP).
+
+
+An extension of the 
+
+
+Note: Ticket Types and Ticket specific Metadata will not be implemented in the first versions/deployments of the getNFT contracts. 
+
 
 Example metadata contract storage:
 <pre><code>
@@ -109,7 +157,7 @@ struct TicketeerStruct {
     struct EventStruct {
         address event_address;
         string event_name;
-        string shop_url;
+        string event_shop_url;
         string location_cord;
         uint256 start_time;
         address ticketeer_address;
@@ -121,6 +169,7 @@ struct TicketeerStruct {
 The `EventStruct` has a nested reference to the `TicketeerStruct`. This means that when referring to a `EventStruct` a link to the issuer (ticketeers) metadata is included. 
 
 ---
+
 
 #### 4-A. Storing & Updating Metadata
 
