@@ -3,25 +3,37 @@ Contract overview and definition of the GET Protocols getNFTs. Allowing P2P trad
 
 *This repo is still work-in-progress!*
 
+
 ---
 
-### 1. getNFT Variables Specification
-The getNFT contracts processes all the transactions from the getNFT engine. 
+| variable name            | type    | description of metadata                                                   | mutable |         Set by        |
+|--------------------------|---------|---------------------------------------------------------------------------|---------|:---------------------:|
+| nftIndex                 | uint    | Unique identifier of the getNFT in the contract. Assigned by factory.     |    no   |  NFT Factory Contract |
+| _setnftMetadata          | string  | String reference to database twin of getNFT. Passed on by ticket issuer.  |   once  |      primaryMint      |
+| _markTicketIssuerAddress | address | Address of the ticketissuer of the getNFT.                                |   once  |      primaryMint      |
+| _markEventAddress        | addres  | Address of the event the getNFT belongs to.                               |   once  |      primaryMint      |
+| _setnftScannedBool       | bool    | Boolean value. false = unscanned. true = scanned                          |   once  | primaryMint, scanNFT  |
 
-Note: integrators/ticketeers do not need to understand or study or adopt this data specification. The getNFT engine will handle all data and convert it in the right format for the getNFT smart contract to process. 
 
-###### A. Ownership variables specification 
+---
+
+### 1. getNFT Asset Specification
+The getNFT contracts processes all the transactions from the getNFT engine. The primary rol of the getNFT engine & its contracts is to manage the exchange/trading of getNFTs as instructed by the ticketissuer. 
+
+Note: integrators/ticketissuers do not need to understand or study or adopt this data specification. The getNFT engine will handle all data and convert it in the right format for the getNFT smart contract to process. 
+
+###### A. Identity variables specification 
 Data fields on ownership of getNFTs. 
 
 | Var | Description | Type  |
 | ------ | ------ | ------ |
 | *destinationAddress* | The to-be/intended future owner of a getNFT asset. | address |
 | *originAddress*   | The current/past owner of a getNFT asset. |   address |
-| *ticketeerAddress* | The address of the ticketeer that has issued the getNFT. | address |
+| *ticketIssuerAddress* | The address of the ticketissuer that has issued the getNFT. | address |
 
 
 ###### B. Metadata variables specification
-Data fields on metadata storage of getNFTs. 
+Data fields describing metadata of getNFTs. 
 
 | Var        | Description           | Type  |
 | ------ | ------ | ------ |
@@ -30,7 +42,7 @@ Data fields on metadata storage of getNFTs.
 | *statusNft* | Metadata field specifying if getNFT is scanned. True = scanned, False = unscanned.  |   bool |
 
 ###### C. Internal variables specification 
-Data fields used internally in management of getNFTs. 
+Variables that are used internally in the getNFT contact.
 
 | Var        | Description           | Type  |
 | ------ | ------ | ------ |
@@ -57,15 +69,27 @@ This action is triggered when a ticket is scanned validated.
 Functions A, B & C can only be called by whitelisted addresses(see section 3 of this documentation covering modifiers). If an getNFT owner wants to interact directly with their NFT, they can use the ERC721 functions. 
 
 
-
-#### A. primaryMint
+#### A1. primaryMint (OLD V0)
 Mint a new getNFT to a destinationAddress(address of buyer of the getNFT). The function will return the nftIndex (uint256) of the issued getNFT. 
 ```javascript
-    function primaryMint(address destinationAddress, address ticketeerAddress, string memory ticketMetadata) public onlyMinter  returns (uint256) ;
+    function primaryMint(address destinationAddress, address TicketIssuerAddress, string memory ticketMetadata) public onlyMinter  returns (uint256) ;
 ```
-This function will emit the following event to the event-log of the GET Factory contract:   `txPrimaryMint(destinationAddress, ticketeerAddress, nftIndex, _timestamp)`.
+This function will emit the following event to the event-log of the GET Factory contract:   `txPrimaryMint(destinationAddress, ticketIssuerAddress, nftIndex, _timestamp)`.
 
-The values passed in the `ticketeerAddress` and `ticketMetadata` are stored immutably in the metadata fields of the ERC721 asset. 
+The values passed in the `ticketIssuerAddress` and `ticketMetadata` are stored immutably in the metadata fields of the ERC721 asset. 
+
+
+#### A2. primaryMint (NEW V1)
+Mint a new getNFT to a destinationAddress(address of buyer of the getNFT). The function will return the nftIndex (uint256) of the issued getNFT. 
+```javascript
+    function primaryMint(address destinationAddress, address TicketIssuerAddress, string memory ticketMetadata) public onlyMinter  returns (uint256) ;
+```
+This function will emit the following event to the event-log of the GET Factory contract:   `txPrimaryMint(destinationAddress, ticketIssuerAddress, nftIndex, _timestamp)`.
+
+The values passed in the `ticketIssuerAddress` and `ticketMetadata` are stored immutably in the metadata fields of the ERC721 asset. 
+
+###### primaryMint (PLANNED V2)
+
 
 #### B. secondaryTransfer
 If a ticket is resold to a other address this function is triggered. The getNFT custody uses a fresh wallet for each getNFT. The `originAddress` needs to be the owner of a getNFT for this function to be successful. 
@@ -73,7 +97,9 @@ If a ticket is resold to a other address this function is triggered. The getNFT 
 ```javascript
     function secondaryTransfer(address originAddress, address destinationAddress) public onlyRelayer;
 ```
-This function will emit the following event:  `txSecondary(originAddress, destinationAddress, getAddressOfTicketeer(nftIndex), nftIndex, _timestamp)`.
+This function will emit the following event:  `txSecondary(originAddress, destinationAddress, getAddressOfticketIssuer(nftIndex), nftIndex, _timestamp)`.
+
+0x48726D94FAe632f1eA4D9719d91F83ee300E50a5|0x35178086f8b81A4ed5ca46b1C2182F6149F221dB|ticket-279
 
 
 #### C. scanNFT
@@ -101,17 +127,17 @@ The NFT factory has 2 storage contracts that handle the metadata storage and str
 
 
 ### 4-A. getNFT ticketIssuer Metadata
-Consumer purchase their tickets from a webshop or platform. The types of data passed per ticketeer integrator might vary, the table below shows several options of the data that can be passed. 
+Consumer purchase their tickets from a webshop or platform. The types of data passed per ticketIssuer integrator might vary, the table below shows several options of the data that can be passed. 
 
 
 | variable              | description                                                                      |   type  | required |
 |-----------------------|----------------------------------------------------------------------------------|:-------:|:--------:|
-| tickeer_address       | Public key hash of the ticketeer.                                                | address |    yes   |
-| ticketeer_name        | Commercial name of the ticketing company / integrator / business.                |  string |    no    |
-| ticketeer_shop_url    | Website of the ticketeers ticket shop / platform (where NFT can be traded)       |  string |    no    |
-| ticketeer_support_url | Website of the ticketeers support department for questions about the NFT/ticket. |  string |    no    |
+| tickeer_address       | Public key hash of the ticketIssuer.                                                | address |    yes   |
+| ticketissuer_name        | Commercial name of the ticketing company / integrator / business.                |  string |    no    |
+| ticketissuer_shop_url    | Website of the ticketissuers ticket shop / platform (where NFT can be traded)       |  string |    no    |
+| ticketissuer_support_url | Website of the ticketissuers support department for questions about the NFT/ticket. |  string |    no    |
 | listPointerT          | internal value used to store data this data type in a smart contract efficiently |   uint  |    yes   |
-| tickeer_id            | Internal unique identifier of the ticketeer                                      |   uint  |    yes   |
+| tickeer_id            | Internal unique identifier of the ticketissuer                                      |   uint  |    yes   |
 
 The `tickeer_address` is the only required field. 
 
@@ -129,10 +155,10 @@ Storage struct name: `Eventstruct`.
 | event_shop_url    | URL pointing to the primary/secondary/general shop of event.  |  string |    no    |
 | location_cord     | Coordinates of the location of the event.                     |  string |    no    |
 | date_time_gmt     | Date/time the event is scheduled to take place on.            |   uint  |    yes   |
-| ticketeer_address | Address of the ticketeer/issuer that is servicing the event.  | address |    yes   |
-| TicketeerStruct   | Pointer to the storage struct with ticketeer metadat.         | mapping |     -    |
+| ticketissuer_address | Address of the ticketissuer/issuer that is servicing the event.  | address |    yes   |
+| TicketIssuerStruct   | Pointer to the storage struct with ticketissuer metadat.         | mapping |     -    |
 
-The unique identifier of the event metadata struct is the `event_address`. This public key hash is set by the getNFT custody. Similar to the ticketeer metadata, editing of previously submitted data is only possible by overriding (but using the same primary key - which is always an `address`).
+The unique identifier of the event metadata struct is the `event_address`. This public key hash is set by the getNFT custody. Similar to the ticketissuer metadata, editing of previously submitted data is only possible by overriding (but using the same primary key - which is always an `address`).
 
 
 ### 4-C. getEvent TicketType Metadata 
@@ -147,10 +173,10 @@ Note: Ticket Types and Ticket specific Metadata will not be implemented in the f
 
 Example metadata contract storage:
 <pre><code>
-struct TicketeerStruct {
+struct TicketIssuerStruct {
         address tickeer_address;
-        string ticketeer_name;
-        string ticketeer_url;
+        string ticketissuer_name;
+        string ticketissuer_url;
         uint listPointerT;
     }
 
@@ -160,32 +186,32 @@ struct TicketeerStruct {
         string event_shop_url;
         string location_cord;
         uint256 start_time;
-        address ticketeer_address;
-        TicketeerStruct ticketeerMetaData;
+        address ticketissuer_address;
+        TicketIssuerStruct TicketIssuerMetaData;
         uint listPointerE;
     }
 </code></pre>
 
-The `EventStruct` has a nested reference to the `TicketeerStruct`. This means that when referring to a `EventStruct` a link to the issuer (ticketeers) metadata is included. 
+The `EventStruct` has a nested reference to the `TicketIssuerStruct`. This means that when referring to a `EventStruct` a link to the issuer (ticketissuers) metadata is included. 
 
 ---
 
 
 #### 4-A. Storing & Updating Metadata
 
-**1. Ticketeer MetaData**
-Basic information about the ticketeer that has issued the ticket. It is the ticketeer that is reponsible for passing on the instructions. The primary key of the ticketeer is their ticketeerAddress. This is a rather static address meaning that it rarely if ever changes. 
+**1. TicketIssuer MetaData**
+Basic information about the ticketissuer that has issued the ticket. It is the ticketissuer that is reponsible for passing on the instructions. The primary key of the ticketissuer is their ticketissuerAddress. This is a rather static address meaning that it rarely if ever changes. 
 
-Function: newTicketeer stores data of the ticketeer in the contract. The primary key of the struct is the publickeyhash of the ticketeer (ticketeerAddress).
+Function: newTicketIssuer stores data of the ticketissuer in the contract. The primary key of the struct is the publickeyhash of the ticketissuer (ticketissuerAddress).
 
 <pre><code>
-    function newTicketeer(address ticketeerAddress, string memory ticketeerName, string memory ticketeerUrl) public onlyRelayer returns(bool success)
+    function newTicketIssuer(address ticketissuerAddress, string memory ticketissuerName, string memory ticketissuerUrl) public onlyRelayer returns(bool success)
 </code></pre>
 
-Variables Ticketeer (subject to change/discussion):
-- ticketeerAddress
-- ticketeerName
-- ticketeerUrl 
+Variables TicketIssuer (subject to change/discussion):
+- ticketissuerAddress
+- ticketissuerName
+- ticketissuerUrl 
 
 **2. Event Metadata**
 
@@ -193,32 +219,22 @@ Variables Ticketeer (subject to change/discussion):
   function newEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory coordinates, uint256 startingTime, address tickeerAddress) public onlyRelayer returns(bool success)
 </code></pre>
 
-Variables Event (subject to change/discussion):
-- eventAddress
-- eventName
-- shopUrl
-- coordinates
-- startingTime
-- tickeerAddress
-
-
-
 **2. Ticket Metadata**
 
 #### 4-B. Reading Metadata 
 
 **1. Function getEventDataAll**
-Fetches all the metadata of both the event & ticketeer struct. 
+Fetches all the metadata of both the event & ticketissuer struct. 
 
 <pre><code>
-    getEventDataAll(address eventAddress) public view returns(string memory eventName, string memory shopUrl, string memory locationCord, uint startTime, string memory ticketeerName, address, string memory ticketeerUrl)
+    getEventDataAll(address eventAddress) public view returns(string memory eventName, string memory shopUrl, string memory locationCord, uint startTime, string memory ticketissuerName, address, string memory ticketissuerUrl)
 </code></pre>
 
 **2. Function getEventDataQuick**
-Fetches only minally required metadata from the event & ticketeer struct (faster). 
+Fetches only minally required metadata from the event & ticketissuer struct (faster). 
 
 <pre><code>
-  function getEventDataQuick(address eventAddress) public view returns(address, string memory eventName, address ticketeerAddress, string memory ticketeerName)
+  function getEventDataQuick(address eventAddress) public view returns(address, string memory eventName, address ticketissuerAddress, string memory ticketissuerName)
 </code></pre>
 
 
@@ -226,9 +242,9 @@ Fetches only minally required metadata from the event & ticketeer struct (faster
 ### getNFT Contract Events 
 
 ```javascript
-    event txPrimaryMint(address indexed destinationAddress, address indexed ticketeer, uint256 indexed nftIndex, uint _timestamp);
-    event txSecondary(address originAddress, address indexed destinationAddress, address indexed ticketeer, uint256 indexed nftIndex, uint _timestamp)
-    event txScan(address originAddress, address indexed ticketeer, uint256 indexed nftIndex, uint _timestamp);
+    event txPrimaryMint(address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
+    event txSecondary(address originAddress, address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp)
+    event txScan(address originAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
 ```
 
 ---

@@ -1,6 +1,6 @@
 pragma solidity ^0.6.0;
 
-contract MetaDataTE {
+contract MetaDataTType {
 
     address public manageraddress = msg.sender;
     // uint public creationTime = now;
@@ -21,26 +21,24 @@ contract MetaDataTE {
         _;
     }
 
-    struct TicketIssuerStruct {
-        address ticketissuer_address;
-        string ticketissuer_name;
-        string ticketissuer_url;
+
+    struct TicketDetailsStruct {
+        uint tickettype_id;
+        string tickettype_name;
+        string ticket_price;
         uint listPointerT;
     }
 
-    struct EventStruct {
+    struct EventResaleRules {
         address event_address;
-        string event_name;
-        string shop_url;
-        string location_cord;
-        uint256 start_time;
-        address ticketissuer_address;
+        uint max_sale_price;
+        uint min_sale_price;
         TicketIssuerStruct ticketIssuerMetaData;
         uint listPointerE;
     }
 
   // Mappings for the event data storage
-  mapping(address => ticketIssuerStruct) public allTicketIssuerStructs;
+  mapping(address => TicketIssuerStruct) public allTicketIssuerStructs;
   address[] public ticketIssuerAddresses;
 
   // Mappings for the event data storage
