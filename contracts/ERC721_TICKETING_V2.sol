@@ -1,14 +1,14 @@
 pragma solidity ^0.6.0;
 
 import "./ERC721_CLEAN.sol";
-import "./Pausable.sol";
-import "./MinterRole.sol";
+// import "./Pausable.sol";
+// import "./MinterRole.sol";
 import "./RelayerRole.sol";
 import "./Counters.sol";
-import "./Ownable.sol";
+// import "./Ownable.sol";
 import "./MetaDataTE.sol";
  
-abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, Pausable, MinterRole, RelayerRole, Ownable, MetaDataTE  {
+abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, RelayerRole, MetaDataTE  {
 
     constructor (string memory name, string memory symbol) public ERC721_CLEAN(name, symbol) {}
 
@@ -29,14 +29,14 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, Pausable, MinterRole, Rel
     /** 
      * @dev Set event_metadata_TE_address for NFT Factory contract (used to store metadata of events and ticketIssuer - TE)
      */ 
-    function updateMetadataTEAddress(address _new_metadata_TE) public onlyOwner {
+    function updateMetadataTEAddress(address _new_metadata_TE) public onlyRelayer {
         event_metadata_TE_address = _new_metadata_TE;
     }
 
     /** 
      * @dev Set ticket_metadata_address for NFT Factory contract (used to store metadata of tickets)
      */ 
-    function updateMetadataTicketAddress(address new_ticket_metadata) public onlyOwner {
+    function updateMetadataTicketAddress(address new_ticket_metadata) public onlyRelayer {
         ticket_metadata_address = new_ticket_metadata;
     }
 
@@ -45,7 +45,7 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, Pausable, MinterRole, Rel
      * @notice Data will be publically available for the getNFT ticket explorer. 
      */ 
     function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) public override onlyRelayer returns(bool success) {
-        return MetaDataTE(event_metadata_address).newTicketIssuer(ticketIssuerAddress, ticketIssuerName, ticketIssuerUrl);
+        return MetaDataTE(event_metadata_TE_address).newTicketIssuer(ticketIssuerAddress, ticketIssuerName, ticketIssuerUrl);
     }
 
     /** 
@@ -53,7 +53,7 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, Pausable, MinterRole, Rel
      * @notice Data will be publically available for the getNFT ticket explorer. 
      */ 
     function newEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory coordinates, uint256 startingTime, address tickeerAddress) public override returns(bool success) {
-        return MetaDataTE(event_metadata_address).newEvent(eventAddress, eventName, shopUrl, coordinates, startingTime, tickeerAddress);
+        return MetaDataTE(event_metadata_TE_address).newEvent(eventAddress, eventName, shopUrl, coordinates, startingTime, tickeerAddress);
     }
 
     /** 
@@ -61,7 +61,7 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, Pausable, MinterRole, Rel
      * @notice Data will be publically available for the getNFT ticket explorer. 
      */ 
     function getEventDataAll(address eventAddress) public override view returns(string memory eventName, string memory shopUrl, string memory locationCord, uint startTime, string memory ticketIssuerName, address, string memory ticketIssuerUrl) {
-        return MetaDataTE(event_metadata_address).getEventDataAll(eventAddress);
+        return MetaDataTE(event_metadata_TE_address).getEventDataAll(eventAddress);
     }
 
 
@@ -71,7 +71,7 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, Pausable, MinterRole, Rel
     * @param ticketMetadata string containing the metadata about the ticket the NFT is representing
     * @param ticketMetadata XX 
     */
-    function primaryMint(address destinationAddress, address ticketIssuerAddress, address eventAddress, string memory ticketMetadata) public onlyMinter returns (uint256) {
+    function primaryMint(address destinationAddress, address ticketIssuerAddress, address eventAddress, string memory ticketMetadata) public onlyRelayer returns (uint256) {
 
         /// Fetches nftIndex and autoincrements it
         _nftIndexs.increment();
@@ -79,6 +79,8 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, Pausable, MinterRole, Rel
         
         _mint(destinationAddress, nftIndex);
         
+        require(_exists(nftIndex), "GET TX FAILED Func: primaryMint : Nonexistent nftIndex");
+
         // Storing the address of the ticketIssuer in the NFT
         _markTicketIssuerAddress(nftIndex, ticketIssuerAddress);
         _markEventAddress(nftIndex, eventAddress);
@@ -115,6 +117,7 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, Pausable, MinterRole, Rel
         nftIndex = tokenOfOwnerByIndex(originAddress, 0);
 
         // TODO -> TX needs to throw if originAddress does not own an getNFT.
+        require(_exists(nftIndex), "GET TX FAILED Func: secondaryTransfer : Nonexistent nftIndex");
 
         /// Verify if originAddress is owner of nftIndex
         require(ownerOf(nftIndex) == originAddress, "GET TX FAILED Func:secondaryTransfer - transfer of nftIndexx that is not owned by owner");
@@ -172,7 +175,7 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, Pausable, MinterRole, Rel
      * @notice TODO
      */ 
     function _markEventAddress(uint256 nftIndex, address _eventAddress) internal {
-        require(_exists(nftIndex), "GET TX FAILED Func: _markEventAddress : Nonexistent nftIndex");
+        // require(_exists(nftIndex), "GET TX FAILED Func: _markEventAddress : Nonexistent nftIndex");
         _eventAddresses[nftIndex] = _eventAddress;
     }
 
@@ -180,7 +183,7 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, Pausable, MinterRole, Rel
     * @dev Returns the address of the ticketIssuerAddress that controls the NFT
      */
     function getAddressOfTicketIssuer(uint256 nftIndex) public view returns (address) {
-        require(_exists(nftIndex), "GET TX FAILED Func: getAddressOfTicketIssuer : Nonexistent nftIndex");
+        // require(_exists(nftIndex), "GET TX FAILED Func: getAddressOfTicketIssuer : Nonexistent nftIndex");
         return _ticketIssuerAddresses[nftIndex];
     }
 
@@ -188,7 +191,7 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, Pausable, MinterRole, Rel
     * @dev Returns the Eventaddress of the getNFT
      */
     function getEventAddress(uint256 nftIndex) public view returns (address) {
-        require(_exists(nftIndex), "GET TX FAILED Func: getEventAddress : Nonexistent nftIndex");
+        // require(_exists(nftIndex), "GET TX FAILED Func: getEventAddress : Nonexistent nftIndex");
         return _eventAddresses[nftIndex];
     }
 
