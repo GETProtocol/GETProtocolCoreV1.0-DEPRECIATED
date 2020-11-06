@@ -3,13 +3,47 @@ Contract overview and definition of the GET Protocols getNFTs. Allowing P2P trad
 
 *This repo is still work-in-progress!*
 
+System overview
+![Diagram Overview](./markdown_images/overview_layers.png)
 
+## Definition of a getNFT asset
+The address that owns the getNFT at the moment the event scanning starts, is the actual owner of the getNFT (and will enjoy the utility of being able to use the ticket/getNFT to enter the venue). The getNFT is thus a transferrable digital right. These tickets/getNFTs will have a value on the secondary market. The contract logic described in the repo, allow for getNFTs to be traded and exchanged between Ethereum/Klaytn/BSC addresses.
 
+An getNFT complies with the ERC721 standard. The following interfaces are present:
+- IERC721
+- IERC721Metadata
+- IERC721Enumerable
+- IERC721Receiver
+
+Therefor an getNFT behaves the same as one is occustomed from an NFT. As the GET Protocol focusses on a large main stream userbase we have developed an set of smart contracts that will make usage of the getNFTs far more attainable for the real-world problem set. It will be these special features and details that will be the subject of this repositiory. 
+
+The code of these custom functions is found in the following files:
+- ERC721_TICKETING_V2.sol
+- MetaDataTE.sol
+- OrderbookBuyers.sol
+- OrderbookSellers.sol
+
+---
+
+## API Documentation (WIP!)
+The GET Protocol offers for ticketIssuers a API interface to pass on the activity on their systems to the blockchain twin of the issued tickets. Provided links below detail the API interface (not still work in progress, subject to large changes).
+
+![custody overview](./markdown_images/custody_queue.png)
+
+- [GETProtocol getNFT Interface](https://documenter.getpostman.com/view/12511061/TVYKYvVH)
+
+- [GETProtocol getNFT Callbacks](https://documenter.getpostman.com/view/12511061/TVYKYvQo#bd4bcf88-eff9-4341-9eac-71d3f4348b5d)
+
+It is for the public not possible to interact with these API endpoints. getNFTs owners that want to move their getNFTs and that have access to their private keys, are able to use their own wallet to interact with their assets. 
+
+---
 
 ### 1. getNFT Asset Specification
-The getNFT contracts processes all the transactions from the getNFT engine. The primary rol of the getNFT engine & its contracts is to manage the exchange/trading of getNFTs as instructed by the ticketissuer. 
+The getNFT contract(ERC721_TICKETING_V2) processes all the requests from the getNFT engine. The primary rol of the getNFT engine & its contracts is to manage the exchange/trading of getNFTs as instructed by the `ticketissuer`. 
 
 Note: integrators/ticketissuers do not need to understand or study or adopt this data specification. The getNFT engine will handle all data and convert it in the right format for the getNFT smart contract to process. 
+
+The ticketing usecase requires several custom variables and datafields. The tables below will break down these variables per category. 
 
 ###### 1 A. Identity variables specification 
 Data fields on ownership of getNFTs. 
@@ -44,7 +78,7 @@ Variables that are used internally in the getNFT contact.
 ---
 
 ### 2. getNFT Ownership Functions Specification
-The getNFT contract manages the ownership and metadata management of event-assets on-chain. The getNFT engine (and its blockchain nodes) are  
+The getNFT contract manages the ownership and metadata management of event-assets on-chain. The getNFT engine (and its blockchain nodes) have access to the GET Protocol custody vault. This system holds all the HD wallets derivations of all the users in the system that prefer to have their keys managed by a specialized third party.   
 
 **A.  primaryMint: Issuance of getNFT to address.**
 This action is triggered when a ticket is sold to a fan/user. Triggering the creation of the digital twin of the ticket.
@@ -67,6 +101,9 @@ This function will emit the following event to the event-log of the GET Factory 
 
 The values passed in the `ticketIssuerAddress`, `eventAddress` and `ticketMetadata` are stored immutably in the metadata fields of the ERC721 asset.
 
+![Primary NFT](./markdown_images/primarymint.png)
+
+
 #### B. secondaryTransfer
 If a ticket is resold to a other address this function is triggered. The getNFT custody uses a fresh wallet for each getNFT. The `originAddress` needs to be the owner of a getNFT for this function to be successful. 
 
@@ -75,6 +112,8 @@ If a ticket is resold to a other address this function is triggered. The getNFT 
 ```
 This function will emit the following event:  `txSecondary(originAddress, destinationAddress, getAddressOfticketIssuer(nftIndex), nftIndex, _timestamp)`.
 
+![Primary NFT](./markdown_images/secondarymint.png)
+
 #### C. scanNFT
 Function that sets the `_nftScanned` metadata field to `true` in the getNFT. This is an immutable action. The getNFT remains transferrable after this action.
 
@@ -82,6 +121,8 @@ Function that sets the `_nftScanned` metadata field to `true` in the getNFT. Thi
     function scanNFT(address originAddress) public onlyRelayer;
 ```
 This function will emit the following event:  `emit txScan(originAddress, destinationAddress, nftIndex, _timestamp);`. As of now validating a ticket is immutable. 
+
+![Primary NFT](./markdown_images/scannft.png)
 
 ---
 
@@ -103,16 +144,6 @@ In the first versions of the GET Protocol contracts these addresses will be mana
     event txSecondary(address originAddress, address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp)
     event txScan(address originAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
 ```
-
----
-
-## Other components of the getNFT system
-
-![Diagram Overview](./markdown_images/overview_layers.png)
-
-- custody_docs:
-- engine_docs:
-- asset_factory_docs: Solidity contracts specifying GET Protocol assets. 
 
 ---
 
