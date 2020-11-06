@@ -1,14 +1,12 @@
 pragma solidity ^0.6.0;
 
 import "./ERC721_CLEAN.sol";
-// import "./Pausable.sol";
-// import "./MinterRole.sol";
 import "./RelayerRole.sol";
 import "./Counters.sol";
-// import "./Ownable.sol";
-import "./MetaDataTE.sol";
+import "./metadata/MetaDataTE.sol";
  
-abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, RelayerRole, MetaDataTE  {
+abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, RelayerRole  {
+    MetaDataTE metadata_ticketeer;
 
     constructor (string memory name, string memory symbol) public ERC721_CLEAN(name, symbol) {}
 
@@ -44,7 +42,7 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, RelayerRole, MetaDataTE  
      * @dev Register address data of new ticketIssuer
      * @notice Data will be publically available for the getNFT ticket explorer. 
      */ 
-    function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) public override onlyRelayer returns(bool success) {
+    function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) public onlyRelayer returns(bool success) {
         return MetaDataTE(event_metadata_TE_address).newTicketIssuer(ticketIssuerAddress, ticketIssuerName, ticketIssuerUrl);
     }
 
@@ -52,7 +50,7 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, RelayerRole, MetaDataTE  
      * @dev Register address data of new ticketIssuer
      * @notice Data will be publically available for the getNFT ticket explorer. 
      */ 
-    function newEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory coordinates, uint256 startingTime, address tickeerAddress) public override returns(bool success) {
+    function newEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory coordinates, uint256 startingTime, address tickeerAddress) public returns(bool success) {
         return MetaDataTE(event_metadata_TE_address).newEvent(eventAddress, eventName, shopUrl, coordinates, startingTime, tickeerAddress);
     }
 
@@ -60,7 +58,7 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, RelayerRole, MetaDataTE  
      * @dev Register address data of new ticketIssuer
      * @notice Data will be publically available for the getNFT ticket explorer. 
      */ 
-    function getEventDataAll(address eventAddress) public override view returns(string memory eventName, string memory shopUrl, string memory locationCord, uint startTime, string memory ticketIssuerName, address, string memory ticketIssuerUrl) {
+    function getEventDataAll(address eventAddress) public view returns(string memory eventName, string memory shopUrl, string memory locationCord, uint startTime, string memory ticketIssuerName, address, string memory ticketIssuerUrl) {
         return MetaDataTE(event_metadata_TE_address).getEventDataAll(eventAddress);
     }
 

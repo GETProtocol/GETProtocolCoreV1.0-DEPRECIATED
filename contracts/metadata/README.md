@@ -1,5 +1,6 @@
 # GET Protocol - Metadata Specification - getNFT 
 
+![Met4a](../../markdown_images/metadata_h.png)
 
 ---
 
@@ -14,11 +15,11 @@
 
 ---
 
-## 4. getNFT Flexible Metadata Contracts 
+## 1. getNFT Flexible Metadata Contracts 
 The NFT factory has 2 storage contracts that handle the metadata storage and structure. In order to facilitate changes to the metadata structure the contract allows for the admin to change the metadata storage contracts by setting `address public event_metadata_TE_address;` and `address public ticket_metadata_address`.
 
 
-### 4-A. getNFT ticketIssuer Metadata
+### 1-A. getNFT ticketIssuer Metadata
 Consumer purchase their tickets from a webshop or platform. The types of data passed per ticketIssuer integrator might vary, the table below shows several options of the data that can be passed. 
 
 
@@ -34,7 +35,7 @@ Consumer purchase their tickets from a webshop or platform. The types of data pa
 The `tickeer_address` is the only required field. 
 
 
-### 4-B. getEvent Metadata
+### 1-B. getEvent Metadata
 
 Storage struct name: `Eventstruct`.
 
@@ -52,15 +53,8 @@ Storage struct name: `Eventstruct`.
 The unique identifier of the event metadata struct is the `event_address`. This public key hash is set by the getNFT custody. Similar to the ticketissuer metadata, editing of previously submitted data is only possible by overriding (but using the same primary key - which is always an `address`).
 
 
-### 4-C. getEvent TicketType Metadata 
+### 1-C. getEvent TicketType Metadata 
 Event tickets are often split up in different types (general admission, weekender, VIP).
-
-
-An extension of the 
-
-
-Note: Ticket Types and Ticket specific Metadata will not be implemented in the first versions/deployments of the getNFT contracts. 
-
 
 Example metadata contract storage:
 <pre><code>
