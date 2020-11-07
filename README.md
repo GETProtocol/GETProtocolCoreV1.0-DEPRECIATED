@@ -1,23 +1,22 @@
 # GET Protocol - General Smart Contract Specification - getNFT
-Contract overview and definition of the GET Protocols getNFTs. Allowing P2P trading of smart tickets, lending and more. In this repo the conceptual and achritectual documentation of the GET Protocol is maintained and updated.
+Contract overview and definition of the GET Protocols getNFTs. Allowing P2P trading of smart tickets, lending and more. In this repo the conceptual and achritectual documentation of the GET Protocol is maintained and updated. The code in this repo is only a small part of the tech stack of the GET Protocol.
 
-*This repo is still work-in-progress!*
-
-System overview
+**High Level Overview GET Protocol**
 ![Diagram Overview](./markdown_images/overview_layers.png)
+Custody (the HD wallet infrastructure) and engine (the tx processing and logic board) are still closed-source. This repository is the asset_factory. At the moment the GET Protocol is issuing getNFT assets on the blockchains Ropsten (Ethereum Testnet), BSC Testnet (Binance Smart Chain) and for all Korean ticketing and services the Klaytn Blockchain (mainnet).
 
 ## Definition of a getNFT asset
-The address that owns the getNFT at the moment the event scanning starts, is the actual owner of the getNFT (and will enjoy the utility of being able to use the ticket/getNFT to enter the venue). The getNFT is thus a transferrable digital right. These tickets/getNFTs will have a value on the secondary market. The contract logic described in the repo, allow for getNFTs to be traded and exchanged between Ethereum/Klaytn/BSC addresses.
+The GET Protocol offers a toolsel to make (event) tickets interoperable, liquid and securitizable. Tickets are digital rights of entry. Hence. the crypto address that owns a getNFT at the moment the event scanning starts, is the entity that will be able to use the ticket to enter the venue. 
 
-An getNFT complies with the ERC721 standard. The following interfaces are present:
+The getNFT is thus a transferrable digital right. These tickets/getNFTs will have a value on the secondary market. The contract logic described in the repo, allow for getNFTs to be traded and exchanged between Ethereum/Klaytn/BSC addresses/users.
+
+getNFT is compliant with the ERC721 standard. getNFT adopts the following interfaces:
 - IERC721
 - IERC721Metadata
 - IERC721Enumerable
 - IERC721Receiver
 
-Therefor an getNFT behaves the same as one is occustomed from an NFT. As the GET Protocol focusses on a large main stream userbase we have developed an set of smart contracts that will make usage of the getNFTs far more attainable for the real-world problem set. It will be these special features and details that will be the subject of this repositiory. 
-
-The code of these custom functions is found in the following files:
+Besides the standard function and features the getNFT has several special functions and metadata contracts allowing it to be used for the rather specialized smart ticketing usecase. The code of these custom functions is found in the following contracts:
 - ERC721_TICKETING_V2.sol
 - MetaDataTE.sol
 - OrderbookBuyers.sol
@@ -25,16 +24,16 @@ The code of these custom functions is found in the following files:
 
 ---
 
-## API Documentation (WIP!)
-The GET Protocol offers for ticketIssuers a API interface to pass on the activity on their systems to the blockchain twin of the issued tickets. Provided links below detail the API interface (not still work in progress, subject to large changes).
-
-![custody overview](./markdown_images/custody_queue.png)
+## API Documentation for ticketIssuers (Ticketeers)
+The GET Protocol offers for ticketIssuers an API interface to pass on the activity on their systems to the blockchain twin of the issued tickets. Provided links below detail the API interface for ticketeers:
 
 - [GETProtocol getNFT Interface](https://documenter.getpostman.com/view/12511061/TVYKYvVH)
 
 - [GETProtocol getNFT Callbacks](https://documenter.getpostman.com/view/12511061/TVYKYvQo#bd4bcf88-eff9-4341-9eac-71d3f4348b5d)
 
 It is for the public not possible to interact with these API endpoints. getNFTs owners that want to move their getNFTs and that have access to their private keys, are able to use their own wallet to interact with their assets. 
+
+![custody overview](./markdown_images/custody_queue.png)
 
 ---
 
@@ -43,16 +42,16 @@ The getNFT contract(ERC721_TICKETING_V2) processes all the requests from the get
 
 Note: integrators/ticketissuers do not need to understand or study or adopt this data specification. The getNFT engine will handle all data and convert it in the right format for the getNFT smart contract to process. 
 
-The ticketing usecase requires several custom variables and datafields. The tables below will break down these variables per category. 
+The ticketing usecase requires several custom variables and datafields. The tables below will break down these variables per metadata category. 
 
 ###### 1 A. Identity variables specification 
 Data fields on ownership of getNFTs. 
 
 | Var | Description | Type  |
 | ------ | ------ | ------ |
-| *destinationAddress* | The to-be/intended future owner of a getNFT asset. | address |
-| *originAddress*   | The current/past owner of a getNFT asset. |   address |
-| *ticketIssuerAddress* | The address of the ticketissuer that has issued the getNFT. | address |
+| *destinationAddress* | The to-be/intended future owner of a getNFT asset. | `address` |
+| *originAddress*   | The current/past owner of a getNFT asset. |   `address` |
+| *ticketIssuerAddress* | The address of the ticketissuer that has issued the getNFT. | `address` |
 
 
 ###### 1 B. Metadata variables specification
@@ -60,19 +59,19 @@ Data fields describing metadata of getNFTs.
 
 | Var        | Description           | Type  |
 | ------ | ------ | ------ |
-| *ticketMetadata* | Data field pointing/reference set by ticketissuer (no rules set by protocol). | string |
-| *eventAddress*   | Address of the event the getNFT asset belongs to set by custody. |   address |
-| *statusNft* | Metadata field specifying if getNFT is scanned. True = scanned, False = unscanned.  |   bool |
+| *ticketMetadata* | Data field pointing/reference set by ticketissuer (no rules set by protocol). | `string` |
+| *eventAddress*   | Address of the event the getNFT asset belongs to set by custody. |   `address` |
+| *statusNft* | Metadata field specifying if getNFT is scanned. True = scanned, False = unscanned.  |   `bool` |
 
 ###### 1 C. Internal variables specification 
 Variables that are used internally in the getNFT contact.
 
 | Var        | Description           | Type  |
 | ------ | ------ | ------ |
-| *nftIndex*   | Internal reference/pointer to the asset in the smart contract.      |   uint256 |
-| *_timestamp* | Data field pointing to a certain ticket/asset of the issuer. | string |
-| *onlyRelayer* | Solidity modifier. Only addresses that are registered as a 'relayer' can access this func. |   msg.sender (address) |
-| *onlyMinter* | Solidity modifier. Only addresses that are registered as a 'relaminteryer' can access this func.  |   msg.sender (address) |
+| *nftIndex*   | Internal reference/pointer to the asset in the smart contract.      |   `uint256` |
+| *_timestamp* | Data field pointing to a certain ticket/asset of the issuer. | `string` |
+| *onlyRelayer* | Solidity modifier. Only addresses that are registered as a 'relayer' can access this func. |   `msg.sender` (address) |
+| *onlyMinter* | Solidity modifier. Only addresses that are registered as a 'relaminteryer' can access this func.  |   `msg.sender` (address) |
 
 
 ---
@@ -126,7 +125,6 @@ This function will emit the following event:  `emit txScan(originAddress, destin
 
 ---
 
-
 ## 3. Contract Modifiers 
 To manage acces the contract uses the RoleManager modules from open zeppelin.  
 1. Minter/Admin: Set contract variables, proxy adminstration, add/remove addresses to access control etc.
@@ -148,7 +146,7 @@ In the first versions of the GET Protocol contracts these addresses will be mana
 ---
 
 ### Deploying the contracts in this repository
-WORK IN PROGRESS (does not work yet)
+WORK IN PROGRESS (commands as stated do not work yet).
 
 
 ```bash
@@ -161,5 +159,3 @@ $ truffle migrate --reset --network ganache
 # start app
 $ npm run dev
 ```
-
-
