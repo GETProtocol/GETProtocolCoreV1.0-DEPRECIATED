@@ -3,11 +3,9 @@ pragma solidity ^0.6.0;
 import "./ERC721_CLEAN.sol";
 import "./RelayerRole.sol";
 import "./Counters.sol";
-import "./metadata/MetaDataTE.sol";
+import "./metadata/MetaDataIssuersEvents.sol";
  
 abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, RelayerRole  {
-    MetaDataTE metadata_ticketeer;
-
     constructor (string memory name, string memory symbol) public ERC721_CLEAN(name, symbol) {}
 
     using Counters for Counters.Counter;
@@ -20,9 +18,12 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, RelayerRole  {
     address public event_metadata_TE_address;
     address public ticket_metadata_address;
 
+    MetaDataTE metadata_ticketeer;
+
     event txPrimaryMint(address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
     event txSecondary(address originAddress, address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
     event txScan(address originAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
+    event doubleScan(address indexed originAddress, uint256 indexed nftIndex,uint indexed _timestamp);
 
     /** 
      * @dev Set event_metadata_TE_address for NFT Factory contract (used to store metadata of events and ticketIssuer - TE)
@@ -47,7 +48,7 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, RelayerRole  {
     }
 
     /** 
-     * @dev Register address data of new ticketIssuer
+     * @dev Register address data of new event
      * @notice Data will be publically available for the getNFT ticket explorer. 
      */ 
     function newEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory coordinates, uint256 startingTime, address tickeerAddress) public returns(bool success) {
@@ -118,7 +119,7 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, RelayerRole  {
         require(_exists(nftIndex), "GET TX FAILED Func: secondaryTransfer : Nonexistent nftIndex");
 
         /// Verify if originAddress is owner of nftIndex
-        require(ownerOf(nftIndex) == originAddress, "GET TX FAILED Func:secondaryTransfer - transfer of nftIndexx that is not owned by owner");
+        require(ownerOf(nftIndex) == originAddress, "GET TX FAILED Func: secondaryTransfer - transfer of nftIndexx that is not owned by owner");
         
         /// Verify if the destinationAddress isn't burn-address
         require(destinationAddress != address(0), "GET TX FAILED Func:secondaryTransfer -  transfer to the zero address");
@@ -146,15 +147,25 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, RelayerRole  {
 
         address destinationAddress = getAddressOfTicketIssuer(nftIndex);
 
+        // bool stateNft;
         bool statusNft;
-        statusNft = true;
+        statusNft = _nftScanned[nftIndex];
 
-        // Set scanned state to true 
-        _setnftScannedBool(nftIndex, statusNft);
-        
         // Capture time of tx for the ticketexplorer
         uint _timestamp;
         _timestamp = block.timestamp;
+
+        if (statusNft != true) {
+            // The getNFT has already been scanned. This is allowed, but needs to be reported.
+            emit doubleScan(originAddress, nftIndex, _timestamp);
+            return; 
+        }
+
+        // // bool statusNft;
+        // statusNft = true;
+
+        // Set scanned state to true 
+        _setnftScannedBool(nftIndex, true);
         
         emit txScan(originAddress, destinationAddress, nftIndex, _timestamp);
     }
@@ -173,7 +184,7 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, RelayerRole  {
      * @notice TODO
      */ 
     function _markEventAddress(uint256 nftIndex, address _eventAddress) internal {
-        // require(_exists(nftIndex), "GET TX FAILED Func: _markEventAddress : Nonexistent nftIndex");
+        require(_exists(nftIndex), "GET TX FAILED Func: _markEventAddress : Nonexistent nftIndex");
         _eventAddresses[nftIndex] = _eventAddress;
     }
 
@@ -181,7 +192,7 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, RelayerRole  {
     * @dev Returns the address of the ticketIssuerAddress that controls the NFT
      */
     function getAddressOfTicketIssuer(uint256 nftIndex) public view returns (address) {
-        // require(_exists(nftIndex), "GET TX FAILED Func: getAddressOfTicketIssuer : Nonexistent nftIndex");
+        require(_exists(nftIndex), "GET TX FAILED Func: getAddressOfTicketIssuer : Nonexistent nftIndex");
         return _ticketIssuerAddresses[nftIndex];
     }
 
@@ -189,7 +200,7 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, RelayerRole  {
     * @dev Returns the Eventaddress of the getNFT
      */
     function getEventAddress(uint256 nftIndex) public view returns (address) {
-        // require(_exists(nftIndex), "GET TX FAILED Func: getEventAddress : Nonexistent nftIndex");
+        require(_exists(nftIndex), "GET TX FAILED Func: getEventAddress : Nonexistent nftIndex");
         return _eventAddresses[nftIndex];
     }
 
@@ -200,7 +211,7 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, RelayerRole  {
      */
     function _setnftScannedBool (uint256 nftIndex, bool status) internal {
         require(_exists(nftIndex), "GET TX FAILED Func: _setnftScannedBool: Nonexistent nftIndex");
-        require(_nftScanned[nftIndex] != true, "GET TX FAILED Func: _setnftScannedBool: NFT already in scanned state.");
+        // require(stateNft != true, "GET TX FAILED Func: _setnftScannedBool: NFT already in scanned state.");
         _nftScanned[nftIndex] = status;
     }    
 

@@ -135,13 +135,34 @@ In the first versions of the GET Protocol contracts these addresses will be mana
 ---
 
 
-## 4. getNFT Contract Events 
+## 4. getNFT Contract Events Emitted (Ticket Explorer)
 
+
+*Events emitted by ERC721_TICKETING_V2*
 ```javascript
     event txPrimaryMint(address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
     event txSecondary(address originAddress, address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp)
     event txScan(address originAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
+    event doubleScan(address indexed originAddress, uint256 indexed nftIndex, indexed uint _timestamp);
 ```
+
+Event log of ERC721_TICKETING_V2:
+- `txPrimaryMint`: Primary market ticket sold/issued.
+- `txSecondary`: Secondary market ticket traded/shared.
+- `txScan`: Ticket scanned/validated.
+- `doubleScan`: An already valid ticket was scanned again. 
+
+*Events emitted by MetaDataTE*
+```javascript
+    event newEventRegistered(address indexed eventAddress, string indexed eventName, uint indexed _timestamp);
+    event newTicketIssuerRegistered(address indexed ticketeerAddress, string indexed ticketeerName, uint indexed _timestamp);
+```
+
+Event log of MetaDataTE:
+- `newEventRegistered`: New event registered in Metadata contract. 
+- `newTicketIssuerRegistered`: New ticketIssuer registered in Metadata contract.
+- `eventMetaDataUpdated`: TO BE ADDED / NOT YET PRESENT  IN CONTRACT - Metadata of an event was changed/updated.
+
 
 ---
 
@@ -159,3 +180,18 @@ $ truffle migrate --reset --network ganache
 # start app
 $ npm run dev
 ```
+
+
+### Variables changed 
+ticketeer = ticketIssuer
+_ticketeerAddresss = _ticketIssuerAddresses
+_ticketeerAddress = _ticketIssuerAddress
+TicketeerStruct = TicketIssuerStruct
+allTicketeerStructs = allTicketIssuerStructs
+isTicketeer = isTicketIssuer
+ticketeerAddress = ticketIssuerAddress
+ticketeerAddresses = ticketIssuerAddresses
+_markTicketeerAddress = _markTicketIssuerAddress
+ticketeerMetaData = ticketIssuerMetadata
+newTicketeer = newTicketIssuer
+newTicketeerRegistered = newTicketIssuerRegistered
