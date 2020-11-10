@@ -1,11 +1,16 @@
 pragma solidity ^0.6.0;
 
 import "./ERC721_CLEAN.sol";
-import "./RelayerRole.sol";
+// import "./RelayerRole.sol";
 import "./Counters.sol";
 import "./metadata/MetaDataIssuersEvents.sol";
+import "./interfaces/IERCAccessControlGET.sol";
  
-abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, RelayerRole  {
+abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN  {
+    bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
+    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    bytes32 public constant DEFAULT_ADMIN_ROLE = 0x00;
+
     constructor (string memory name, string memory symbol) public ERC721_CLEAN(name, symbol) {}
 
     using Counters for Counters.Counter;
@@ -18,6 +23,23 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, RelayerRole  {
     address public event_metadata_TE_address;
     address public ticket_metadata_address;
 
+    AccessContractGET public constant CONTROL = AccessContractGET(0xff01D2Bd9346Cf3e1e65eE7C235eb54Cb2FEbECd);
+
+    modifier onlyAdmin() {
+        require(CONTROL.hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "ACCESS DENIED - Restricted to admins of GET Protocol.");
+        _;
+    }
+
+    modifier onlyRelayer() {
+        require(CONTROL.hasRole(RELAYER_ROLE, msg.sender), "ACCESS DENIED - Restricted to relayers of GET Protocol.");
+        _;
+    }
+
+    modifier onlyMinter() {
+        require(CONTROL.hasRole(RELAYER_ROLE, msg.sender), "ACCESS DENIED - Restricted to members.");
+        _;
+    }    
+
     MetaDataTE metadata_ticketeer;
 
     event txPrimaryMint(address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
@@ -28,14 +50,14 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, RelayerRole  {
     /** 
      * @dev Set event_metadata_TE_address for NFT Factory contract (used to store metadata of events and ticketIssuer - TE)
      */ 
-    function updateMetadataTEAddress(address _new_metadata_TE) public onlyRelayer {
+    function updateMetadataTEAddress(address _new_metadata_TE) public onlyRelayer() {
         event_metadata_TE_address = _new_metadata_TE;
     }
 
     /** 
      * @dev Set ticket_metadata_address for NFT Factory contract (used to store metadata of tickets)
      */ 
-    function updateMetadataTicketAddress(address new_ticket_metadata) public onlyRelayer {
+    function updateMetadataTicketAddress(address new_ticket_metadata) public onlyRelayer() {
         ticket_metadata_address = new_ticket_metadata;
     }
 
@@ -43,7 +65,7 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN, RelayerRole  {
      * @dev Register address data of new ticketIssuer
      * @notice Data will be publically available for the getNFT ticket explorer. 
      */ 
-    function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) public onlyRelayer returns(bool success) {
+    function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) public onlyRelayer() returns(bool success) {
         return MetaDataTE(event_metadata_TE_address).newTicketIssuer(ticketIssuerAddress, ticketIssuerName, ticketIssuerUrl);
     }
 
