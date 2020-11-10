@@ -1,7 +1,6 @@
 pragma solidity ^0.6.0;
 
 import "./ERC721_CLEAN.sol";
-// import "./RelayerRole.sol";
 import "./Counters.sol";
 import "./metadata/MetaDataIssuersEvents.sol";
 import "./interfaces/IERCAccessControlGET.sol";
