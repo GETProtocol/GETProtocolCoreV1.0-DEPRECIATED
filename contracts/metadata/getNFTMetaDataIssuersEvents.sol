@@ -4,10 +4,16 @@ pragma solidity ^0.6.0;
 
 contract getNFTMetaDataIssuersEvents {
     bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
-    AccessContractGET public constant CONTROL = AccessContractGET(0xb32524007A28720dea1AC2c341E5465888B09b64);
+    AccessContractGET BOUNCER;
+
+    constructor (address _bouncerAddress) public {
+        BOUNCER = AccessContractGET(_bouncerAddress);
+    }
+
+    // AccessContractGET public constant BOUNCER = AccessContractGET(0xb32524007A28720dea1AC2c341E5465888B09b64);
 
     modifier onlyFactory() {
-        require(CONTROL.hasRole(FACTORY_ROLE, msg.sender), "ACCESS DENIED - Restricted to factories.");
+        require(BOUNCER.hasRole(FACTORY_ROLE, msg.sender), "ACCESS DENIED - Restricted to factories.");
         _;
     } 
 
@@ -16,8 +22,8 @@ contract getNFTMetaDataIssuersEvents {
 
     event newEventRegistered(address indexed eventAddress, string indexed eventName, uint indexed _timestamp);
     event newTicketIssuerMetaData(address indexed ticketIssuerAddress, string indexed ticketIssuerName, uint indexed _timestamp);
-    event updateOfEventMetadata(address indexed eventAddress, uint indexed _timestamp);
-    event updateOfTicketeerMetadata(address indexed ticketIssuerAddress, uint indexed _timestamp);
+    // event updateOfEventMetadata(address indexed eventAddress, uint indexed _timestamp);
+    // event updateOfTicketeerMetadata(address indexed ticketIssuerAddress, uint indexed _timestamp);
 
     struct TicketIssuerStruct {
         address ticketissuer_address;
