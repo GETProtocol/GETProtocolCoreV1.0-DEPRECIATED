@@ -6,7 +6,7 @@ import "./Counters.sol";
 import "./interfaces/IERCMetaDataIssuersEvents.sol";
 import "./interfaces/IERCAccessControlGET.sol";
  
-abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN  {
+abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
@@ -121,14 +121,10 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN  {
         _setnftMetadata(nftIndex, ticketMetadata);
         
         // Set scanned state to false (unscanned)
-        bool statusNft;
-        statusNft = false;
-        _setnftScannedBool(nftIndex, statusNft);
+        _setnftScannedBool(nftIndex, false);
         
         // Fetch blocktime as to assist ticket explorer for ordering
-        uint _timestamp;
-        _timestamp = block.timestamp;
-        emit txPrimaryMint(destinationAddress, ticketIssuerAddress, nftIndex, _timestamp);
+        emit txPrimaryMint(destinationAddress, ticketIssuerAddress, nftIndex, block.timestamp);
         
         return nftIndex;
     }
@@ -159,13 +155,9 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN  {
         
         /// Transfer the NFT to destinationAddress
         _relayerTransferFrom(originAddress, destinationAddress, nftIndex);
-        
-        // Capture time of tx for the ticketexplorer
-        uint _timestamp;
-        _timestamp = block.timestamp;
 
         /// Emit event of secondary transfer
-        emit txSecondary(originAddress, destinationAddress, getAddressOfTicketIssuer(nftIndex), nftIndex, _timestamp);
+        emit txSecondary(originAddress, destinationAddress, getAddressOfTicketIssuer(nftIndex), nftIndex, block.timestamp);
     }
 
     /** onlyRelayer - caller needs to be whitelisted relayer
@@ -184,23 +176,16 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN  {
         bool statusNft;
         statusNft = _nftScanned[nftIndex];
 
-        // Capture time of tx for the ticketexplorer
-        uint _timestamp;
-        _timestamp = block.timestamp;
-
         if (statusNft != true) {
             // The getNFT has already been scanned. This is allowed, but needs to be reported.
             emit doubleScan(originAddress, nftIndex, _timestamp);
             return; 
         }
 
-        // // bool statusNft;
-        // statusNft = true;
-
         // Set scanned state to true 
         _setnftScannedBool(nftIndex, true);
         
-        emit txScan(originAddress, destinationAddress, nftIndex, _timestamp);
+        emit txScan(originAddress, destinationAddress, nftIndex, block.timestamp);
     }
 
     /** 
