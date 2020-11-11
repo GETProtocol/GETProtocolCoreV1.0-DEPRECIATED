@@ -2,7 +2,6 @@ import "./interfaces/IERCAccessControlGET.sol";
 
 pragma solidity ^0.6.0;
 
-contract getNFTMetaDataIssuersEvents {
     bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
     AccessContractGET BOUNCER;
 
@@ -18,18 +17,24 @@ contract getNFTMetaDataIssuersEvents {
     } 
 
     address public deployeraddress = msg.sender;
-    uint public deployertime = now;
+    uint256 public deployertime = now;
 
-    event newEventRegistered(address indexed eventAddress, string indexed eventName, uint indexed _timestamp);
-    event newTicketIssuerMetaData(address indexed ticketIssuerAddress, string indexed ticketIssuerName, uint indexed _timestamp);
-    // event updateOfEventMetadata(address indexed eventAddress, uint indexed _timestamp);
-    // event updateOfTicketeerMetadata(address indexed ticketIssuerAddress, uint indexed _timestamp);
+    event newEventRegistered(address indexed eventAddress, string indexed eventName, uint256 indexed _timestamp);
+    event newTicketIssuerMetaData(address indexed ticketIssuerAddress, string indexed ticketIssuerName, uint256 indexed _timestamp);
+    // event updateOfEventMetadata(address indexed eventAddress, uint256 indexed _timestamp);
+    // event updateOfTicketeerMetadata(address indexed ticketIssuerAddress, uint256 indexed _timestamp);
+
+    struct Order {
+        uint256 _nftIndex;
+        uint256 _price;
+    }
+
 
     struct TicketIssuerStruct {
         address ticketissuer_address;
         string ticketissuer_name;
         string ticketissuer_url;
-        uint listPointerT;
+        uint256 listPointerT;
     }
 
     struct EventStruct {
@@ -39,8 +44,11 @@ contract getNFTMetaDataIssuersEvents {
         string location_cord;
         uint256 start_time;
         address ticketissuer_address;
+        uint256 amountNFTs;
+        uint256 grossRevenue;
         TicketIssuerStruct ticketIssuerMetaData;
-        uint listPointerE;
+        mapping (uint256 => Order) orders;
+        uint256 listPointerE;
     }
 
   // Mappings for the event data storage
@@ -50,12 +58,18 @@ contract getNFTMetaDataIssuersEvents {
   // Mappings for the event data storage
   mapping(address => EventStruct) allEventStructs;
   address[] public eventAddresses;  
-
+  
+  
+  function addnftIndex(address eventAddress, uint256 nftIndex, uint256 pricePaid) public onlyFactory() {
+      EventStruct storage c = allEventStructs[eventAddress];
+      c.orders[c.amountNFTs++] = Order({_nftIndex: nftIndex, _price: pricePaid});
+      c.grossRevenue += pricePaid;
+  }
 
   function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) onlyFactory() public virtual returns(bool success) { 
 
     // Capture time of tx for the ticketexplorer
-    uint _timestamp;
+    uint256 _timestamp;
     _timestamp = block.timestamp;
 
     // if (ticketIssuerAddresses[allTicketIssuerStructs[ticketIssuerAddress].listPointerT] == ticketIssuerAddress) {
@@ -84,7 +98,7 @@ contract getNFTMetaDataIssuersEvents {
   function newEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory coordinates, uint256 startingTime, address tickeerAddress) onlyFactory() public virtual returns(bool success) {
 
     // Capture time of tx for the ticketexplorer
-    uint _timestamp;
+    uint256 _timestamp;
     _timestamp = block.timestamp;
 
     // if (eventAddresses[allEventStructs[eventAddress].listPointerE] == eventAddress) {
@@ -109,24 +123,23 @@ contract getNFTMetaDataIssuersEvents {
     return true;
   }
 
-  function getEventDataQuick(address eventAddress) public virtual view returns(address, string memory eventName, address ticketIssuerAddress, string memory ticketIssuerName) {
-    return(
-        allEventStructs[eventAddress].event_address,
-        allEventStructs[eventAddress].event_name, 
-        allEventStructs[eventAddress].ticketIssuerMetaData.ticketissuer_address, 
-        allEventStructs[eventAddress].ticketIssuerMetaData.ticketissuer_name);
-  }
-  
-
-  function getEventDataAll(address eventAddress) public virtual view returns(string memory eventName, string memory shopUrl, string memory locationCord, uint startTime, string memory ticketIssuerName, address, string memory ticketIssuerUrl) {
+ 
+  function getEventDataAll(address eventAddress) public virtual view returns(string memory eventName, string memory shopUrl, string memory locationCord, uint256 startTime, address, uint256 amountNFTs, uint256 grossRevenue) {
     return(
         allEventStructs[eventAddress].event_name, 
         allEventStructs[eventAddress].shop_url,
         allEventStructs[eventAddress].location_cord,
         allEventStructs[eventAddress].start_time,
-        allEventStructs[eventAddress].ticketIssuerMetaData.ticketissuer_name,
         allEventStructs[eventAddress].ticketIssuerMetaData.ticketissuer_address,
-        allEventStructs[eventAddress].ticketIssuerMetaData.ticketissuer_url);
+        allEventStructs[eventAddress].amountNFTs,
+        allEventStructs[eventAddress].grossRevenue);
+  }
+  
+  function fetchOrderNFT(address eventAddress, uint256 nftIndex) public view returns(uint256 _nftIndex, uint256 _price) {
+    return(
+        allEventStructs[eventAddress].orders[nftIndex]._nftIndex,
+        allEventStructs[eventAddress].orders[nftIndex]._price
+        );
   }
 
   function isEvent(address eventAddress) public view returns(bool isIndeed) {
@@ -134,7 +147,7 @@ contract getNFTMetaDataIssuersEvents {
     return (eventAddresses[allEventStructs[eventAddress].listPointerE] == eventAddress);
   }
 
-  function getEventCount() public view returns(uint eventCount) {
+  function getEventCount() public view returns(uint256 eventCount) {
     return eventAddresses.length;
   }
 
@@ -143,7 +156,7 @@ contract getNFTMetaDataIssuersEvents {
     return (ticketIssuerAddresses[allTicketIssuerStructs[ticketIssuerAddress].listPointerT] == ticketIssuerAddress);
   }
 
-  function getTicketIssuerCount() public view returns(uint ticketIssuerCount) {
+  function getTicketIssuerCount() public view returns(uint256 ticketIssuerCount) {
     return ticketIssuerAddresses.length;
   }
 }
