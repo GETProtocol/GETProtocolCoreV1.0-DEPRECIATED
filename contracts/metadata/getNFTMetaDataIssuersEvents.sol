@@ -1,30 +1,23 @@
+import "./interfaces/IERCAccessControlGET.sol";
+
 pragma solidity ^0.6.0;
 
-contract MetaDataTE {
+contract getNFTMetaDataIssuersEvents {
+    bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
+    AccessContractGET public constant CONTROL = AccessContractGET(0xb32524007A28720dea1AC2c341E5465888B09b64);
 
-    address public manageraddress = msg.sender;
-    uint public creationTime = now;
+    modifier onlyFactory() {
+        require(CONTROL.hasRole(FACTORY_ROLE, msg.sender), "ACCESS DENIED - Restricted to factories.");
+        _;
+    } 
 
-    function changeManager(address _newManager)
-        public
-        onlyBy(manageraddress)
-    {
-        manageraddress = _newManager;
-    }
+    address public deployeraddress = msg.sender;
+    uint public deployertime = now;
 
     event newEventRegistered(address indexed eventAddress, string indexed eventName, uint indexed _timestamp);
     event newTicketIssuerMetaData(address indexed ticketIssuerAddress, string indexed ticketIssuerName, uint indexed _timestamp);
     event updateOfEventMetadata(address indexed eventAddress, uint indexed _timestamp);
     event updateOfTicketeerMetadata(address indexed ticketIssuerAddress, uint indexed _timestamp);
-
-    modifier onlyBy(address _account)
-    {
-        require(
-            msg.sender == _account,
-            "Sender not authorized."
-        );
-        _;
-    }
 
     struct TicketIssuerStruct {
         address ticketissuer_address;
@@ -53,16 +46,16 @@ contract MetaDataTE {
   address[] public eventAddresses;  
 
 
-  function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) onlyBy(manageraddress) public virtual returns(bool success) { 
+  function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) onlyFactory() public virtual returns(bool success) { 
 
     // Capture time of tx for the ticketexplorer
     uint _timestamp;
     _timestamp = block.timestamp;
 
-    if (ticketIssuerAddresses[allTicketIssuerStructs[ticketIssuerAddress].listPointerT] == ticketIssuerAddress) {
-      // Metadata is being updated, as records of ticketissuer already are stored. Emits event for ticket explorer.
-        emit updateOfTicketeerMetadata(ticketIssuerAddress, _timestamp);
-    }
+    // if (ticketIssuerAddresses[allTicketIssuerStructs[ticketIssuerAddress].listPointerT] == ticketIssuerAddress) {
+    //   // Metadata is being updated, as records of ticketissuer already are stored. Emits event for ticket explorer.
+    //     emit updateOfTicketeerMetadata(ticketIssuerAddress, _timestamp);
+    // }
 
     allTicketIssuerStructs[ticketIssuerAddress].ticketissuer_address = ticketIssuerAddress;
     allTicketIssuerStructs[ticketIssuerAddress].ticketissuer_name = ticketIssuerName;
@@ -82,16 +75,16 @@ contract MetaDataTE {
       allTicketIssuerStructs[ticketIssuerAddress].ticketissuer_url);
   }
 
-  function newEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory coordinates, uint256 startingTime, address tickeerAddress) onlyBy(manageraddress) public virtual returns(bool success) {
+  function newEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory coordinates, uint256 startingTime, address tickeerAddress) onlyFactory() public virtual returns(bool success) {
 
     // Capture time of tx for the ticketexplorer
     uint _timestamp;
     _timestamp = block.timestamp;
 
-    if (eventAddresses[allEventStructs[eventAddress].listPointerE] == eventAddress) {
-      // Metadata is being updated, as records of event was already stored. Emits event for ticket explorer.
-        emit updateOfEventMetadata(eventAddress, _timestamp);
-    }
+    // if (eventAddresses[allEventStructs[eventAddress].listPointerE] == eventAddress) {
+    //   // Metadata is being updated, as records of event was already stored. Emits event for ticket explorer.
+    //     emit updateOfEventMetadata(eventAddress, _timestamp);
+    // }
 
     allEventStructs[eventAddress].event_name = eventName;
     allEventStructs[eventAddress].shop_url = shopUrl;
