@@ -5,7 +5,7 @@ pragma solidity ^0.6.0;
 
 // https://medium.com/robhitchens/solidity-crud-part-1-824ffa69509a#.gvh9pf1gj
 
-contract MetaDataTType {
+contract getNFTMetaDataTicketType {
 
     address public manageraddress = msg.sender;
     // uint public creationTime = now;
@@ -25,7 +25,6 @@ contract MetaDataTType {
         );
         _;
     }
-
 
     struct TicketTypeStruct {
         uint tickettype_id;

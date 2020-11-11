@@ -1,17 +1,21 @@
 pragma solidity ^0.6.0;
 
 import "./ERC721_CLEAN.sol";
-// import "./RelayerRole.sol";
 import "./Counters.sol";
-import "./metadata/MetaDataIssuersEvents.sol";
+// import "./metadata/IERCMetaDataIssuersEvents.sol";
+import "./interfaces/IERCMetaDataIssuersEvents.sol";
 import "./interfaces/IERCAccessControlGET.sol";
  
 abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN  {
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
     bytes32 public constant DEFAULT_ADMIN_ROLE = 0x00;
+    MetaDataIssuersEvents METADATA_IE;
 
-    constructor (string memory name, string memory symbol) public ERC721_CLEAN(name, symbol) {}
+    constructor (string memory name, string memory symbol) public ERC721_CLEAN(name, symbol) {
+        METADATA_IE = MetaDataIssuersEvents(0x9c7C27cf5A5D539beedcc331523A4129e49d2d22);
+    }
 
     using Counters for Counters.Counter;
     Counters.Counter private _nftIndexs;
@@ -23,7 +27,7 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN  {
     address public event_metadata_TE_address;
     address public ticket_metadata_address;
 
-    AccessContractGET public constant CONTROL = AccessContractGET(0xff01D2Bd9346Cf3e1e65eE7C235eb54Cb2FEbECd);
+    AccessContractGET public constant CONTROL = AccessContractGET(0xb32524007A28720dea1AC2c341E5465888B09b64);
 
     modifier onlyAdmin() {
         require(CONTROL.hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "ACCESS DENIED - Restricted to admins of GET Protocol.");
@@ -38,26 +42,30 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN  {
     modifier onlyMinter() {
         require(CONTROL.hasRole(RELAYER_ROLE, msg.sender), "ACCESS DENIED - Restricted to members.");
         _;
-    }    
-
-    MetaDataTE metadata_ticketeer;
+    }
+    
+    modifier onlyFactory() {
+        require(CONTROL.hasRole(FACTORY_ROLE, msg.sender), "ACCESS DENIED - Restricted to factories.");
+        _;
+    } 
 
     event txPrimaryMint(address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
     event txSecondary(address originAddress, address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
     event txScan(address originAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
     event doubleScan(address indexed originAddress, uint256 indexed nftIndex,uint indexed _timestamp);
 
-    /** 
+    /** 0x5C6F570D63C4DFD4B8113fCba72BE8CF7a356A54
      * @dev Set event_metadata_TE_address for NFT Factory contract (used to store metadata of events and ticketIssuer - TE)
      */ 
-    function updateMetadataTEAddress(address _new_metadata_TE) public onlyRelayer() {
+    function updategetNFTMetaDataIssuersEvents(address _new_metadata_TE) public onlyAdmin() {
         event_metadata_TE_address = _new_metadata_TE;
+        METADATA_IE = MetaDataIssuersEvents(_new_metadata_TE);
     }
 
     /** 
      * @dev Set ticket_metadata_address for NFT Factory contract (used to store metadata of tickets)
      */ 
-    function updateMetadataTicketAddress(address new_ticket_metadata) public onlyRelayer() {
+    function updateMetadataTicketAddress(address new_ticket_metadata) public onlyAdmin() {
         ticket_metadata_address = new_ticket_metadata;
     }
 
@@ -65,8 +73,8 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN  {
      * @dev Register address data of new ticketIssuer
      * @notice Data will be publically available for the getNFT ticket explorer. 
      */ 
-    function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) public onlyRelayer() returns(bool success) {
-        return MetaDataTE(event_metadata_TE_address).newTicketIssuer(ticketIssuerAddress, ticketIssuerName, ticketIssuerUrl);
+    function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) public returns(bool success) {
+        return METADATA_IE.newTicketIssuer(ticketIssuerAddress, ticketIssuerName, ticketIssuerUrl);
     }
 
     /** 
@@ -74,7 +82,7 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN  {
      * @notice Data will be publically available for the getNFT ticket explorer. 
      */ 
     function newEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory coordinates, uint256 startingTime, address tickeerAddress) public returns(bool success) {
-        return MetaDataTE(event_metadata_TE_address).newEvent(eventAddress, eventName, shopUrl, coordinates, startingTime, tickeerAddress);
+        return METADATA_IE.newEvent(eventAddress, eventName, shopUrl, coordinates, startingTime, tickeerAddress);
     }
 
     /** 
@@ -82,7 +90,7 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN  {
      * @notice Data will be publically available for the getNFT ticket explorer. 
      */ 
     function getEventDataAll(address eventAddress) public view returns(string memory eventName, string memory shopUrl, string memory locationCord, uint startTime, string memory ticketIssuerName, address, string memory ticketIssuerUrl) {
-        return MetaDataTE(event_metadata_TE_address).getEventDataAll(eventAddress);
+        return METADATA_IE.getEventDataAll(eventAddress);
     }
 
 
