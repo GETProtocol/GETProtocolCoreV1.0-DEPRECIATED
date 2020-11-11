@@ -11,10 +11,12 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN  {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
     bytes32 public constant DEFAULT_ADMIN_ROLE = 0x00;
-    MetaDataIssuersEvents METADATA_IE;
+    MetaDataIssuersEvents public METADATA_IE;
+    AccessContractGET public BOUNCER;
 
     constructor (string memory name, string memory symbol) public ERC721_CLEAN(name, symbol) {
-        METADATA_IE = MetaDataIssuersEvents(0x9c7C27cf5A5D539beedcc331523A4129e49d2d22);
+        BOUNCER = AccessContractGET(0xb32524007A28720dea1AC2c341E5465888B09b64);
+        METADATA_IE = MetaDataIssuersEvents(0x401C0da1b6f09A41a8358e7e15b5d8f6DA93AD2b);
     }
 
     using Counters for Counters.Counter;
@@ -24,28 +26,25 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN  {
     mapping (uint256 => address) private _ticketIssuerAddresses;  
     mapping (uint256 => address) private _eventAddresses;
 
-    address public event_metadata_TE_address;
-    address public ticket_metadata_address;
-
-    AccessContractGET public constant CONTROL = AccessContractGET(0xb32524007A28720dea1AC2c341E5465888B09b64);
+    // AccessContractGET public constant CONTROL = AccessContractGET(0xb32524007A28720dea1AC2c341E5465888B09b64);
 
     modifier onlyAdmin() {
-        require(CONTROL.hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "ACCESS DENIED - Restricted to admins of GET Protocol.");
+        require(BOUNCER.hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "ACCESS DENIED - Restricted to admins of GET Protocol.");
         _;
     }
 
     modifier onlyRelayer() {
-        require(CONTROL.hasRole(RELAYER_ROLE, msg.sender), "ACCESS DENIED - Restricted to relayers of GET Protocol.");
+        require(BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "ACCESS DENIED - Restricted to relayers of GET Protocol.");
         _;
     }
 
     modifier onlyMinter() {
-        require(CONTROL.hasRole(RELAYER_ROLE, msg.sender), "ACCESS DENIED - Restricted to members.");
+        require(BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "ACCESS DENIED - Restricted to members.");
         _;
     }
     
     modifier onlyFactory() {
-        require(CONTROL.hasRole(FACTORY_ROLE, msg.sender), "ACCESS DENIED - Restricted to factories.");
+        require(BOUNCER.hasRole(FACTORY_ROLE, msg.sender), "ACCESS DENIED - Restricted to factories.");
         _;
     } 
 
@@ -54,20 +53,24 @@ abstract contract ERC721_TICKETING_V2 is ERC721_CLEAN  {
     event txScan(address originAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
     event doubleScan(address indexed originAddress, uint256 indexed nftIndex,uint indexed _timestamp);
 
-    /** 0x5C6F570D63C4DFD4B8113fCba72BE8CF7a356A54
+    /** 
      * @dev Set event_metadata_TE_address for NFT Factory contract (used to store metadata of events and ticketIssuer - TE)
      */ 
     function updategetNFTMetaDataIssuersEvents(address _new_metadata_TE) public onlyAdmin() {
-        event_metadata_TE_address = _new_metadata_TE;
         METADATA_IE = MetaDataIssuersEvents(_new_metadata_TE);
     }
 
-    /** 
-     * @dev Set ticket_metadata_address for NFT Factory contract (used to store metadata of tickets)
-     */ 
-    function updateMetadataTicketAddress(address new_ticket_metadata) public onlyAdmin() {
-        ticket_metadata_address = new_ticket_metadata;
+    function updateBouncerContract(address _new_bouncer_address) public onlyAdmin() {
+        BOUNCER = AccessContractGET(_new_bouncer_address);
     }
+
+
+    // /** 
+    //  * @dev Set ticket_metadata_address for NFT Factory contract (used to store metadata of tickets)
+    //  */ 
+    // function updateMetadataTicketAddress(address new_ticket_metadata) public onlyAdmin() {
+    //     ticket_metadata_address = new_ticket_metadata;
+    // }
 
     /** 
      * @dev Register address data of new ticketIssuer

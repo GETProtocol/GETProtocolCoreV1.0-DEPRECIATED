@@ -1,30 +1,24 @@
 pragma solidity ^0.6.0;
 
-
-// https://ethereum.stackexchange.com/questions/12611/solidity-filling-a-struct-array-containing-itself-an-array
-
-// https://medium.com/robhitchens/solidity-crud-part-1-824ffa69509a#.gvh9pf1gj
+import "./interfaces/IERCAccessControlGET.sol";
 
 contract getNFTMetaDataTicketType {
+    bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
+    AccessContractGET BOUNCER;  
+
+    constructor (address _bouncerAddress) public {
+        BOUNCER = AccessContractGET(_bouncerAddress);
+    }
+
+    // AccessContractGET public constant BOUNCER = AccessContractGET(0xb32524007A28720dea1AC2c341E5465888B09b64);
+
+    modifier onlyFactory() {
+        require(BOUNCER.hasRole(FACTORY_ROLE, msg.sender), "ACCESS DENIED - Restricted to factories.");
+        _;
+    } 
 
     address public manageraddress = msg.sender;
-    // uint public creationTime = now;
-
-    function changeManager(address _newManager)
-        public
-        onlyBy(manageraddress)
-    {
-        manageraddress = _newManager;
-    }
-
-    modifier onlyBy(address _account)
-    {
-        require(
-            msg.sender == _account,
-            "Sender not authorized."
-        );
-        _;
-    }
+    uint public creationTime = now;
 
     struct TicketTypeStruct {
         uint tickettype_id;
@@ -51,7 +45,7 @@ contract getNFTMetaDataTicketType {
   address[] public eventAddresses;  
 
 
-  function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) onlyBy(manageraddress) public virtual returns(bool success) { 
+  function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) onlyFactory() public virtual returns(bool success) { 
     allTicketIssuerStructs[ticketIssuerAddress].ticketissuer_address = ticketIssuerAddress;
     allTicketIssuerStructs[ticketIssuerAddress].ticketissuer_name = ticketIssuerName;
     allTicketIssuerStructs[ticketIssuerAddress].ticketissuer_url = ticketIssuerUrl;
@@ -68,7 +62,7 @@ contract getNFTMetaDataTicketType {
       allTicketIssuerStructs[ticketIssuerAddress].ticketissuer_url);
   }
 
-  function newEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory coordinates, uint256 startingTime, address tickeerAddress) onlyBy(manageraddress) public virtual returns(bool success) {
+  function newEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory coordinates, uint256 startingTime, address tickeerAddress) onlyFactory() public virtual returns(bool success) {
     allEventStructs[eventAddress].event_name = eventName;
     allEventStructs[eventAddress].shop_url = shopUrl;
     allEventStructs[eventAddress].location_cord = coordinates;
