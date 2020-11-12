@@ -9,10 +9,8 @@ pragma solidity ^0.6.0;
         BOUNCER = AccessContractGET(_bouncerAddress);
     }
 
-    // AccessContractGET public constant BOUNCER = AccessContractGET(0xb32524007A28720dea1AC2c341E5465888B09b64);
-
     modifier onlyFactory() {
-        require(BOUNCER.hasRole(FACTORY_ROLE, msg.sender), "ACCESS DENIED - Restricted to factories.");
+        require(BOUNCER.hasRole(FACTORY_ROLE, msg.sender), "ACCESS DENIED - Restricted to GET Factory Contracts.");
         _;
     } 
 
@@ -26,9 +24,8 @@ pragma solidity ^0.6.0;
 
     struct Order {
         uint256 _nftIndex;
-        uint256 _price;
+        uint256 _pricePaid;
     }
-
 
     struct TicketIssuerStruct {
         address ticketissuer_address;
@@ -62,15 +59,13 @@ pragma solidity ^0.6.0;
   
   function addnftIndex(address eventAddress, uint256 nftIndex, uint256 pricePaid) public onlyFactory() {
       EventStruct storage c = allEventStructs[eventAddress];
-      c.orders[c.amountNFTs++] = Order({_nftIndex: nftIndex, _price: pricePaid});
+      c.amountNFTs++;
+      c.orders[nftIndex] = = Order({_nftIndex: nftIndex, __pricePaid: pricePaid});
+      // c.orders[c.amountNFTs++] = Order({_nftIndex: nftIndex, _price: pricePaid});
       c.grossRevenue += pricePaid;
   }
 
   function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) onlyFactory() public virtual returns(bool success) { 
-
-    // Capture time of tx for the ticketexplorer
-    uint256 _timestamp;
-    _timestamp = block.timestamp;
 
     // if (ticketIssuerAddresses[allTicketIssuerStructs[ticketIssuerAddress].listPointerT] == ticketIssuerAddress) {
     //   // Metadata is being updated, as records of ticketissuer already are stored. Emits event for ticket explorer.
@@ -81,7 +76,7 @@ pragma solidity ^0.6.0;
     allTicketIssuerStructs[ticketIssuerAddress].ticketissuer_name = ticketIssuerName;
     allTicketIssuerStructs[ticketIssuerAddress].ticketissuer_url = ticketIssuerUrl;
 
-    emit newTicketIssuerMetaData(ticketIssuerAddress, ticketIssuerName, _timestamp);
+    emit newTicketIssuerMetaData(ticketIssuerAddress, ticketIssuerName, block.timestamp);
     
     ticketIssuerAddresses.push(ticketIssuerAddress);
     allTicketIssuerStructs[ticketIssuerAddress].listPointerT = ticketIssuerAddresses.length - 1;
@@ -96,10 +91,6 @@ pragma solidity ^0.6.0;
   }
 
   function newEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory coordinates, uint256 startingTime, address tickeerAddress) onlyFactory() public virtual returns(bool success) {
-
-    // Capture time of tx for the ticketexplorer
-    uint256 _timestamp;
-    _timestamp = block.timestamp;
 
     // if (eventAddresses[allEventStructs[eventAddress].listPointerE] == eventAddress) {
     //   // Metadata is being updated, as records of event was already stored. Emits event for ticket explorer.
@@ -118,7 +109,7 @@ pragma solidity ^0.6.0;
     eventAddresses.push(eventAddress);
     allEventStructs[eventAddress].listPointerE = eventAddresses.length -1;
 
-    emit newEventRegistered(eventAddress, eventName, _timestamp);
+    emit newEventRegistered(eventAddress, eventName, block.timestamp);
 
     return true;
   }

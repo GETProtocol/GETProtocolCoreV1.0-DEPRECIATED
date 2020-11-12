@@ -2,7 +2,6 @@ pragma solidity ^0.6.0;
 
 import "./ERC721_CLEAN.sol";
 import "./Counters.sol";
-// import "./metadata/IERCMetaDataIssuersEvents.sol";
 import "./interfaces/IERCMetaDataIssuersEvents.sol";
 import "./interfaces/IERCAccessControlGET.sol";
  
@@ -26,7 +25,10 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     mapping (uint256 => address) private _ticketIssuerAddresses;  
     mapping (uint256 => address) private _eventAddresses;
 
-    // AccessContractGET public constant CONTROL = AccessContractGET(0xb32524007A28720dea1AC2c341E5465888B09b64);
+    event txPrimaryMint(address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
+    event txSecondary(address originAddress, address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
+    event txScan(address originAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
+    event doubleScan(address indexed originAddress, uint256 indexed nftIndex,uint indexed _timestamp);
 
     modifier onlyAdmin() {
         require(BOUNCER.hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "ACCESS DENIED - Restricted to admins of GET Protocol.");
@@ -46,12 +48,7 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     modifier onlyFactory() {
         require(BOUNCER.hasRole(FACTORY_ROLE, msg.sender), "ACCESS DENIED - Restricted to factories.");
         _;
-    } 
-
-    event txPrimaryMint(address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
-    event txSecondary(address originAddress, address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
-    event txScan(address originAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
-    event doubleScan(address indexed originAddress, uint256 indexed nftIndex,uint indexed _timestamp);
+    }
 
     /** 
      * @dev Set event_metadata_TE_address for NFT Factory contract (used to store metadata of events and ticketIssuer - TE)
@@ -64,19 +61,11 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
         BOUNCER = AccessContractGET(_new_bouncer_address);
     }
 
-
-    // /** 
-    //  * @dev Set ticket_metadata_address for NFT Factory contract (used to store metadata of tickets)
-    //  */ 
-    // function updateMetadataTicketAddress(address new_ticket_metadata) public onlyAdmin() {
-    //     ticket_metadata_address = new_ticket_metadata;
-    // }
-
     /** 
      * @dev Register address data of new ticketIssuer
      * @notice Data will be publically available for the getNFT ticket explorer. 
      */ 
-    function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) public returns(bool success) {
+    function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) public onlyRelayer() returns(bool success) {
         return METADATA_IE.newTicketIssuer(ticketIssuerAddress, ticketIssuerName, ticketIssuerUrl);
     }
 
@@ -84,7 +73,7 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
      * @dev Register address data of new event
      * @notice Data will be publically available for the getNFT ticket explorer. 
      */ 
-    function newEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory coordinates, uint256 startingTime, address tickeerAddress) public returns(bool success) {
+    function newEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory coordinates, uint256 startingTime, address tickeerAddress) public onlyRelayer() returns(bool success) {
         return METADATA_IE.newEvent(eventAddress, eventName, shopUrl, coordinates, startingTime, tickeerAddress);
     }
 
@@ -99,13 +88,12 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
 
     /**  onlyRelayer - caller needs to be whitelisted relayer
     * @notice In the first transaction the ticketMetadata is stored in the metadata of the NFT.
-    * @param destinationAddress addres of the to-be owner of the NFT 
-    * @param ticketMetadata string containing the metadata about the ticket the NFT is representing
-    * @param ticketMetadata XX 
+    * @param destinationAddress addres of the to-be owner of the getNFT 
+    * @param ticketMetadata string containing the metadata about the ticket the NFT is representing (unstructured, set by ticketIssuer)
     */
-    function primaryMint(address destinationAddress, address ticketIssuerAddress, address eventAddress, string memory ticketMetadata) public onlyRelayer returns (uint256) {
+    function primaryMint(address destinationAddress, address ticketIssuerAddress, address eventAddress, string memory ticketMetadata) public onlyRelayer() returns (uint256) {
 
-        /// Fetches nftIndex and autoincrements it
+        /// Fetches nftIndex and autoincrements
         _nftIndexs.increment();
         uint256 nftIndex = _nftIndexs.current();
         
@@ -122,6 +110,9 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
         
         // Set scanned state to false (unscanned)
         _setnftScannedBool(nftIndex, false);
+
+        // Push Order data primary sale to metadata contract
+        METADATA_IE.addnftIndex(eventAddress, nftIndex, 50)
         
         // Fetch blocktime as to assist ticket explorer for ordering
         emit txPrimaryMint(destinationAddress, ticketIssuerAddress, nftIndex, block.timestamp);
@@ -136,7 +127,7 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     * @param originAddress address of the current owner of the getNFT
     * @param destinationAddress addres of the to-be owner of the NFT 
     */
-    function secondaryTransfer(address originAddress, address destinationAddress) public onlyRelayer {
+    function secondaryTransfer(address originAddress, address destinationAddress) public onlyRelayer() {
 
         // In order to move an getNFT the 
         uint256 nftIndex;
@@ -156,6 +147,9 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
         /// Transfer the NFT to destinationAddress
         _relayerTransferFrom(originAddress, destinationAddress, nftIndex);
 
+        // Push Order data secondary sale to metadata contract
+        METADATA_IE.addnftIndex(eventAddress, nftIndex, 60)
+
         /// Emit event of secondary transfer
         emit txSecondary(originAddress, destinationAddress, getAddressOfTicketIssuer(nftIndex), nftIndex, block.timestamp);
     }
@@ -165,7 +159,7 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     * @notice Function doesn't require autorization/sig of the NFT owner!
     * @dev Only a whitelisted relayer address is able to call this contract (onlyRelayer).
     */
-    function scanNFT(address originAddress) public onlyRelayer {
+    function scanNFT(address originAddress) public onlyRelayer() {
 
         uint256 nftIndex; 
         nftIndex = tokenOfOwnerByIndex(originAddress, 0);

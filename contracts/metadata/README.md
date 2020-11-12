@@ -58,22 +58,30 @@ Event tickets are often split up in different types (general admission, weekende
 
 Example metadata contract storage:
 <pre><code>
-struct TicketIssuerStruct {
-        address tickeer_address;
+    struct Order {
+        uint256 _nftIndex;
+        uint256 _pricePaid;
+    }
+
+    struct TicketIssuerStruct {
+        address ticketissuer_address;
         string ticketissuer_name;
         string ticketissuer_url;
-        uint listPointerT;
+        uint256 listPointerT;
     }
 
     struct EventStruct {
         address event_address;
         string event_name;
-        string event_shop_url;
+        string shop_url;
         string location_cord;
         uint256 start_time;
         address ticketissuer_address;
-        TicketIssuerStruct TicketIssuerMetaData;
-        uint listPointerE;
+        uint256 amountNFTs;
+        uint256 grossRevenue;
+        TicketIssuerStruct ticketIssuerMetaData;
+        mapping (uint256 => Order) orders;
+        uint256 listPointerE;
     }
 </code></pre>
 
