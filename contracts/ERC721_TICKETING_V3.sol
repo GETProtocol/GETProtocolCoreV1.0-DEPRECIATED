@@ -14,8 +14,8 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     AccessContractGET public BOUNCER;
 
     constructor (string memory name, string memory symbol) public ERC721_CLEAN(name, symbol) {
-        BOUNCER = AccessContractGET(0xb32524007A28720dea1AC2c341E5465888B09b64);
-        METADATA_IE = MetaDataIssuersEvents(0x401C0da1b6f09A41a8358e7e15b5d8f6DA93AD2b);
+        BOUNCER = AccessContractGET(0xF54269D1b5563c74D3a3dA112465902349B9640A);
+        METADATA_IE = MetaDataIssuersEvents(0x8b0e01BA38D17D71f02BD7C9CDc62951c7558470);
     }
 
     using Counters for Counters.Counter;
@@ -28,25 +28,29 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     event txPrimaryMint(address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
     event txSecondary(address originAddress, address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
     event txScan(address originAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
-    event doubleScan(address indexed originAddress, uint256 indexed nftIndex,uint indexed _timestamp);
+    event doubleScan(address indexed originAddress, uint256 indexed nftIndex, uint indexed _timestamp);
 
+    // Whtielisted EOA account with "ADMIN" role
     modifier onlyAdmin() {
         require(BOUNCER.hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "ACCESS DENIED - Restricted to admins of GET Protocol.");
         _;
     }
 
+    // Whtielisted EOA account with "RELAYER" role
     modifier onlyRelayer() {
         require(BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "ACCESS DENIED - Restricted to relayers of GET Protocol.");
         _;
     }
 
+    // Whtielisted EOA account with "MINTER" role
     modifier onlyMinter() {
-        require(BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "ACCESS DENIED - Restricted to members.");
+        require(BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "ACCESS DENIED - Restricted to minters of GET Protocol.");
         _;
     }
     
+    // Whitelisted Contract Address - A factory mints/issues getNFTs (the contract you are looking at). 
     modifier onlyFactory() {
-        require(BOUNCER.hasRole(FACTORY_ROLE, msg.sender), "ACCESS DENIED - Restricted to factories.");
+        require(BOUNCER.hasRole(FACTORY_ROLE, msg.sender), "ACCESS DENIED - Restricted to registered getNFT Factory contracts.");
         _;
     }
 
@@ -112,7 +116,7 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
         _setnftScannedBool(nftIndex, false);
 
         // Push Order data primary sale to metadata contract
-        METADATA_IE.addnftIndex(eventAddress, nftIndex, 50)
+        METADATA_IE.addnftIndex(eventAddress, nftIndex, 50);
         
         // Fetch blocktime as to assist ticket explorer for ordering
         emit txPrimaryMint(destinationAddress, ticketIssuerAddress, nftIndex, block.timestamp);
@@ -148,7 +152,9 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
         _relayerTransferFrom(originAddress, destinationAddress, nftIndex);
 
         // Push Order data secondary sale to metadata contract
-        METADATA_IE.addnftIndex(eventAddress, nftIndex, 60)
+        address _eventAddress;
+        _eventAddress = getEventAddress(nftIndex);
+        METADATA_IE.addnftIndex(_eventAddress, nftIndex, 60);
 
         /// Emit event of secondary transfer
         emit txSecondary(originAddress, destinationAddress, getAddressOfTicketIssuer(nftIndex), nftIndex, block.timestamp);
@@ -166,13 +172,12 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
 
         address destinationAddress = getAddressOfTicketIssuer(nftIndex);
 
-        // bool stateNft;
         bool statusNft;
         statusNft = _nftScanned[nftIndex];
 
         if (statusNft != true) {
-            // The getNFT has already been scanned. This is allowed, but needs to be reported.
-            emit doubleScan(originAddress, nftIndex, _timestamp);
+            // The getNFT has already been scanned. This is allowed, but needs to be displayed in the event feed.
+            emit doubleScan(originAddress, nftIndex, block.timestamp);
             return; 
         }
 
@@ -192,8 +197,8 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     }
 
     /** 
-     * @dev TODO 
-     * @notice TODO
+     * @dev Internal function that stores the eventAddress in the NFT metadata 
+     * @notice Storage of the eventAddress is immutable
      */ 
     function _markEventAddress(uint256 nftIndex, address _eventAddress) internal {
         require(_exists(nftIndex), "GET TX FAILED Func: _markEventAddress : Nonexistent nftIndex");
@@ -219,11 +224,9 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     /**
     * @dev Sets a getNFT metadata value to true/false.
     * @notice Will fail if nftScannedBool is already scanned. 
-    * TODO 
      */
     function _setnftScannedBool (uint256 nftIndex, bool status) internal {
         require(_exists(nftIndex), "GET TX FAILED Func: _setnftScannedBool: Nonexistent nftIndex");
-        // require(stateNft != true, "GET TX FAILED Func: _setnftScannedBool: NFT already in scanned state.");
         _nftScanned[nftIndex] = status;
     }    
 
