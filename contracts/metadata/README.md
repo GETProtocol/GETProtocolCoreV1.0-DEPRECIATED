@@ -113,8 +113,15 @@ Variables TicketIssuer (subject to change/discussion):
 </code></pre>
 
 **2. Ticket Metadata**
+TODO
 
-#### 4-B. Reading Metadata 
+
+**3. Order Metadata**
+TODO
+
+
+
+#### 4-B. Reading out Metadata 
 
 **1. Function getEventDataAll**
 Fetches all the metadata of both the event & ticketissuer struct. 
