@@ -2,6 +2,9 @@ pragma solidity 0.6.2;
 
 contract OrderbookBuyers{
 
+  address public deployeraddress = msg.sender;
+  uint256 public deployertime = now;
+
   mapping(address => uint256) public buybids;
   mapping(address => address) _nextBuyerBid;
   uint256 public listSizeBuy;
