@@ -1186,7 +1186,7 @@ contract ERC721_CLEAN is Context, ERC165, IERC721, IERC721Metadata, IERC721Enume
     mapping (uint256 => string) private _tokenURIs;
 
     // Base URI
-    string private _baseURI;
+    string private _baseURI = "https://get-protocol.io/";
 
     /*
      *     bytes4(keccak256('balanceOf(address)')) == 0x70a08231
@@ -1673,10 +1673,9 @@ pragma solidity ^0.6.0;
 interface MetaDataIssuersEvents {
     function newTicketIssuer(address ticketIssuerAddress, string calldata ticketIssuerName, string calldata ticketIssuerUrl) external returns(bool success);
     function getTicketIssuer(address ticketIssuerAddress) external view  returns(address, string memory ticketIssuerName, string memory ticketIssuerUrl);
-    function registerEvent(address eventAddress, string calldata eventName, string calldata shopUrl, string calldata coordinates, uint256 startingTime, address tickeerAddress) external returns(bool success);
-    function getEventDataQuick(address eventAddress) external view returns(address, string memory eventName, address ticketIssuerAddress, string memory ticketIssuerName);
+    function registerEvent(address eventAddress, string calldata eventName, string calldata shopUrl, string calldata latitude, string calldata longitude, uint256 startingTime, address tickeerAddress) external returns(bool success);
     function addNftMeta(address eventAddress, uint256 nftIndex, uint256 pricePaid) external;
-    function getEventDataAll(address eventAddress) external view returns(string memory eventName, string memory shopUrl, string memory locationCord, uint startTime, string memory ticketIssuerName, address, string memory ticketIssuerUrl);
+    function getEventDataAll(address eventAddress) external view returns(string memory eventName, string memory shopUrl, uint startTime, string memory ticketIssuerName, address, string memory ticketIssuerUrl);
     function isEvent(address eventAddress) external view returns(bool isIndeed);
     function getEventCount(address ticketIssuerAddress) external view returns(uint eventCount);
     function isTicketIssuer(address ticketIssuerAddress) external view returns(bool isIndeed);
@@ -1710,8 +1709,8 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     AccessContractGET public BOUNCER;
 
     constructor (string memory name, string memory symbol) public ERC721_CLEAN(name, symbol) {
-        BOUNCER = AccessContractGET(0xF54269D1b5563c74D3a3dA112465902349B9640A);
-        METADATA_IE = MetaDataIssuersEvents(0x8b0e01BA38D17D71f02BD7C9CDc62951c7558470);
+        BOUNCER = AccessContractGET(0xaC2D9016b846b09f441AbC2756b0895e529971CD);
+        METADATA_IE = MetaDataIssuersEvents(0xF1cD6211CB0E6020eD3F888574f3bA964cf2fCd5);
     }
 
     using Counters for Counters.Counter;
@@ -1773,15 +1772,15 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
      * @dev Register address data of new event
      * @notice Data will be publically available for the getNFT ticket explorer. 
      */ 
-    function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory coordinates, uint256 startingTime, address tickeerAddress) public onlyRelayer() returns(bool success) {
-        return METADATA_IE.registerEvent(eventAddress, eventName, shopUrl, coordinates, startingTime, tickeerAddress);
+    function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory latitude, string memory longitude, uint256 startingTime, address tickeerAddress) public onlyRelayer() returns(bool success) {
+        return METADATA_IE.registerEvent(eventAddress, eventName, shopUrl, latitude, longitude, startingTime, tickeerAddress);
     }
 
     /** 
      * @dev Register address data of new ticketIssuer
      * @notice Data will be publically available for the getNFT ticket explorer. 
      */ 
-    function getEventDataAll(address eventAddress) public view returns(string memory eventName, string memory shopUrl, string memory locationCord, uint startTime, string memory ticketIssuerName, address, string memory ticketIssuerUrl) {
+    function getEventDataAll(address eventAddress) public view returns(string memory eventName, string memory shopUrl, uint startTime, string memory ticketIssuerName, address, string memory ticketIssuerUrl) {
         return METADATA_IE.getEventDataAll(eventAddress);
     }
 
@@ -1934,4 +1933,6 @@ pragma solidity ^0.6.0;
 
 contract GET_NFT_V3 is ERC721_TICKETING_V3 {
     constructor() public ERC721_TICKETING_V3("GET PROTOCOL SMART TICKET FACTORY V3", "getNFT BSC V3") { }
+    address public deployerAddress = msg.sender;
+    uint public deployerTime = now;
 }

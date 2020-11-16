@@ -14,8 +14,8 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     AccessContractGET public BOUNCER;
 
     constructor (string memory name, string memory symbol) public ERC721_CLEAN(name, symbol) {
-        BOUNCER = AccessContractGET(0xF54269D1b5563c74D3a3dA112465902349B9640A);
-        METADATA_IE = MetaDataIssuersEvents(0x8b0e01BA38D17D71f02BD7C9CDc62951c7558470);
+        BOUNCER = AccessContractGET(0xaC2D9016b846b09f441AbC2756b0895e529971CD);
+        METADATA_IE = MetaDataIssuersEvents(0xF1cD6211CB0E6020eD3F888574f3bA964cf2fCd5);
     }
 
     using Counters for Counters.Counter;
@@ -77,15 +77,15 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
      * @dev Register address data of new event
      * @notice Data will be publically available for the getNFT ticket explorer. 
      */ 
-    function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory coordinates, uint256 startingTime, address tickeerAddress) public onlyRelayer() returns(bool success) {
-        return METADATA_IE.registerEvent(eventAddress, eventName, shopUrl, coordinates, startingTime, tickeerAddress);
+    function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory latitude, string memory longitude, uint256 startingTime, address tickeerAddress) public onlyRelayer() returns(bool success) {
+        return METADATA_IE.registerEvent(eventAddress, eventName, shopUrl, latitude, longitude, startingTime, tickeerAddress);
     }
 
     /** 
      * @dev Register address data of new ticketIssuer
      * @notice Data will be publically available for the getNFT ticket explorer. 
      */ 
-    function getEventDataAll(address eventAddress) public view returns(string memory eventName, string memory shopUrl, string memory locationCord, uint startTime, string memory ticketIssuerName, address, string memory ticketIssuerUrl) {
+    function getEventDataAll(address eventAddress) public view returns(string memory eventName, string memory shopUrl, uint startTime, string memory ticketIssuerName, address, string memory ticketIssuerUrl) {
         return METADATA_IE.getEventDataAll(eventAddress);
     }
 
