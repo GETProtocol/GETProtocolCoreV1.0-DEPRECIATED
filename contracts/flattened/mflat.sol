@@ -25,6 +25,7 @@ contract getNFTMetaDataIssuersEvents {
         _;
     } 
 
+
     address public deployeraddress = msg.sender;
     uint256 public deployertime = now;
 
@@ -45,11 +46,13 @@ contract getNFTMetaDataIssuersEvents {
         uint256 listPointerT;
     }
 
+
     struct EventStruct {
         address event_address;
         string event_name;
         string shop_url;
-        string location_cord;
+        string latitude;
+        string longitude;
         uint256 start_time;
         address ticketissuer_address;
         uint256 amountNFTs;
@@ -58,6 +61,20 @@ contract getNFTMetaDataIssuersEvents {
         mapping (uint256 => Order) orders;
         uint256 listPointerE;
     }
+
+    // struct EventStruct {
+    //     address event_address;
+    //     string event_name;
+    //     string shop_url;
+    //     string location_cord;
+    //     uint256 start_time;
+    //     address ticketissuer_address;
+    //     uint256 amountNFTs;
+    //     uint256 grossRevenue;
+    //     TicketIssuerStruct ticketIssuerMetaData;
+    //     mapping (uint256 => Order) orders;
+    //     uint256 listPointerE;
+    // }
 
   // Mappings for the ticketIsuer data storage
   mapping(address => TicketIssuerStruct) public allTicketIssuerStructs;
@@ -108,7 +125,7 @@ contract getNFTMetaDataIssuersEvents {
       allTicketIssuerStructs[ticketIssuerAddress].ticketissuer_url);
   }
 
-  function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory coordinates, uint256 startingTime, address tickeerAddress) onlyFactory() public virtual returns(bool success) {
+  function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory latitude, string memory longitude, uint256 startingTime, address tickeerAddress) onlyFactory() public virtual returns(bool success) {
 
     // if (eventAddresses[allEventStructs[eventAddress].listPointerE] == eventAddress) {
     //   // Metadata is being updated, as records of event was already stored. Emits event for ticket explorer.
@@ -117,7 +134,10 @@ contract getNFTMetaDataIssuersEvents {
 
     allEventStructs[eventAddress].event_name = eventName;
     allEventStructs[eventAddress].shop_url = shopUrl;
-    allEventStructs[eventAddress].location_cord = coordinates;
+    // allEventStructs[eventAddress].location_cord = coordinates;
+    allEventStructs[eventAddress].latitude = latitude;
+    allEventStructs[eventAddress].longitude = longitude;
+
     allEventStructs[eventAddress].start_time = startingTime;
     allEventStructs[eventAddress].ticketissuer_address = tickeerAddress;
     
@@ -133,13 +153,16 @@ contract getNFTMetaDataIssuersEvents {
   }
 
  
-  function getEventDataAll(address eventAddress) public virtual view returns(string memory eventName, string memory shopUrl, string memory locationCord, uint256 startTime, address, uint256 amountNFTs, uint256 grossRevenue) {
+  function getEventDataAll(address eventAddress) public virtual view returns(string memory eventName, string memory shopUrl, uint256 startTime, address, uint256 amountNFTs, uint256 grossRevenue) {
     return(
         allEventStructs[eventAddress].event_name, 
         allEventStructs[eventAddress].shop_url,
-        allEventStructs[eventAddress].location_cord,
+        // allEventStructs[eventAddress].latitude,
+        // allEventStructs[eventAddress].longitude,
+
         allEventStructs[eventAddress].start_time,
-        allEventStructs[eventAddress].ticketIssuerMetaData.ticketissuer_address,
+        allEventStructs[eventAddress].ticketissuer_address,
+        // allEventStructs[eventAddress].ticketIssuerMetaData.ticketissuer_address,
         allEventStructs[eventAddress].amountNFTs,
         allEventStructs[eventAddress].grossRevenue);
   }
