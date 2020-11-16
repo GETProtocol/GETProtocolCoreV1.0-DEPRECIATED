@@ -1673,9 +1673,9 @@ pragma solidity ^0.6.0;
 interface MetaDataIssuersEvents {
     function newTicketIssuer(address ticketIssuerAddress, string calldata ticketIssuerName, string calldata ticketIssuerUrl) external returns(bool success);
     function getTicketIssuer(address ticketIssuerAddress) external view  returns(address, string memory ticketIssuerName, string memory ticketIssuerUrl);
-    function newEvent(address eventAddress, string calldata eventName, string calldata shopUrl, string calldata coordinates, uint256 startingTime, address tickeerAddress) external returns(bool success);
+    function registerEvent(address eventAddress, string calldata eventName, string calldata shopUrl, string calldata coordinates, uint256 startingTime, address tickeerAddress) external returns(bool success);
     function getEventDataQuick(address eventAddress) external view returns(address, string memory eventName, address ticketIssuerAddress, string memory ticketIssuerName);
-    function addnftIndex(address eventAddress, uint256 nftIndex, uint256 pricePaid) external;
+    function addNftMeta(address eventAddress, uint256 nftIndex, uint256 pricePaid) external;
     function getEventDataAll(address eventAddress) external view returns(string memory eventName, string memory shopUrl, string memory locationCord, uint startTime, string memory ticketIssuerName, address, string memory ticketIssuerUrl);
     function isEvent(address eventAddress) external view returns(bool isIndeed);
     function getEventCount(address ticketIssuerAddress) external view returns(uint eventCount);
@@ -1773,8 +1773,8 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
      * @dev Register address data of new event
      * @notice Data will be publically available for the getNFT ticket explorer. 
      */ 
-    function newEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory coordinates, uint256 startingTime, address tickeerAddress) public onlyRelayer() returns(bool success) {
-        return METADATA_IE.newEvent(eventAddress, eventName, shopUrl, coordinates, startingTime, tickeerAddress);
+    function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory coordinates, uint256 startingTime, address tickeerAddress) public onlyRelayer() returns(bool success) {
+        return METADATA_IE.registerEvent(eventAddress, eventName, shopUrl, coordinates, startingTime, tickeerAddress);
     }
 
     /** 
@@ -1812,7 +1812,7 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
         _setnftScannedBool(nftIndex, false);
 
         // Push Order data primary sale to metadata contract
-        METADATA_IE.addnftIndex(eventAddress, nftIndex, 50);
+        METADATA_IE.addNftMeta(eventAddress, nftIndex, 50);
         
         // Fetch blocktime as to assist ticket explorer for ordering
         emit txPrimaryMint(destinationAddress, ticketIssuerAddress, nftIndex, block.timestamp);
@@ -1828,7 +1828,6 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     * @param destinationAddress addres of the to-be owner of the NFT 
     */
     function secondaryTransfer(address originAddress, address destinationAddress) public onlyRelayer() {
-
         // In order to move an getNFT the 
         uint256 nftIndex;
 
@@ -1848,9 +1847,9 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
         _relayerTransferFrom(originAddress, destinationAddress, nftIndex);
 
         // Push Order data secondary sale to metadata contract
-        address _eventAddress;
-        _eventAddress = getEventAddress(nftIndex);
-        METADATA_IE.addnftIndex(_eventAddress, nftIndex, 60);
+        // address _eventAddress;
+        // _eventAddress = _eventAddresses[nftIndex];
+        // METADATA_IE.addnftIndex(_eventAddress, nftIndex, 60);
 
         /// Emit event of secondary transfer
         emit txSecondary(originAddress, destinationAddress, getAddressOfTicketIssuer(nftIndex), nftIndex, block.timestamp);
