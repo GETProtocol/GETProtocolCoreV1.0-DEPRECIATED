@@ -21,13 +21,20 @@ contract getNFTMetaDataIssuersEvents {
 
     event newEventRegistered(address indexed eventAddress, string indexed eventName, uint256 indexed _timestamp);
     event newTicketIssuerMetaData(address indexed ticketIssuerAddress, string indexed ticketIssuerName, uint256 indexed _timestamp);
+    event primaryMarketNFTSold(address indexed eventAddress, uint256 indexed nftIndex, uint256 indexed pricePaid);
+    event secondaryMarketNFTSold(address indexed eventAddress, uint256 indexed nftIndex, uint256 indexed pricePaid);
     // event updateOfEventMetadata(address indexed eventAddress, uint256 indexed _timestamp);
     // event updateOfTicketeerMetadata(address indexed ticketIssuerAddress, uint256 indexed _timestamp);
 
-    struct Order {
+    struct OrdersPrimary {
         uint256 _nftIndex;
         uint256 _pricePaid;
     }
+
+    struct OrdersSecondary {
+        uint256 _nftIndex;
+        uint256 _pricePaid;
+    }    
 
     struct TicketIssuerStruct {
         address ticketissuer_address;
@@ -46,26 +53,14 @@ contract getNFTMetaDataIssuersEvents {
         uint256 start_time;
         address ticketissuer_address;
         uint256 amountNFTs;
-        uint256 grossRevenue;
+        uint256 grossRevenuePrimary;
+        uint256 grossRevenueSecondary;
         string callback_url;
         TicketIssuerStruct ticketIssuerMetaData;
-        mapping (uint256 => Order) orders;
+        mapping (uint256 => OrdersPrimary) ordersprimary;
+        mapping (uint256 => OrdersSecondary) orderssecondary;
         uint256 listPointerE;
     }
-
-    // struct EventStruct {
-    //     address event_address;
-    //     string event_name;
-    //     string shop_url;
-    //     string location_cord;
-    //     uint256 start_time;
-    //     address ticketissuer_address;
-    //     uint256 amountNFTs;
-    //     uint256 grossRevenue;
-    //     TicketIssuerStruct ticketIssuerMetaData;
-    //     mapping (uint256 => Order) orders;
-    //     uint256 listPointerE;
-    // }
 
   // Mappings for the ticketIsuer data storage
   mapping(address => TicketIssuerStruct) public allTicketIssuerStructs;
@@ -76,12 +71,21 @@ contract getNFTMetaDataIssuersEvents {
   address[] public eventAddresses;  
   
   
-  function addNftMeta(address eventAddress, uint256 nftIndex, uint256 pricePaid) public onlyFactory() {
+  function addNftMetaPrimary(address eventAddress, uint256 nftIndex, uint256 pricePaid) public onlyFactory() {
       EventStruct storage c = allEventStructs[eventAddress];
       c.amountNFTs++;
-      c.orders[nftIndex] = Order({_nftIndex: nftIndex, _pricePaid: pricePaid});
+      c.ordersprimary[nftIndex] = OrdersPrimary({_nftIndex: nftIndex, _pricePaid: pricePaid});
       // c.orders[c.amountNFTs++] = Order({_nftIndex: nftIndex, _price: pricePaid});
-      c.grossRevenue += pricePaid;
+      c.grossRevenuePrimary += pricePaid;
+      emit primaryMarketNFTSold(eventAddress, nftIndex, pricePaid);
+  }
+
+  function addNftMetaSecondary(address eventAddress, uint256 nftIndex, uint256 pricePaid) public onlyFactory() {
+      EventStruct storage c = allEventStructs[eventAddress];
+      c.orderssecondary[nftIndex] = OrdersSecondary({_nftIndex: nftIndex, _pricePaid: pricePaid});
+      // c.orders[c.amountNFTs++] = Order({_nftIndex: nftIndex, _price: pricePaid});
+      c.grossRevenueSecondary += pricePaid;
+      emit secondaryMarketNFTSold(eventAddress, nftIndex, pricePaid);
   }
 
   // function editNftMeta(address eventAddress, uint256 nftIndex, uint256 pricePaid) public onlyFactory() {
@@ -92,11 +96,6 @@ contract getNFTMetaDataIssuersEvents {
   // }
 
   function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) onlyFactory() public virtual returns(bool success) { 
-
-    // if (ticketIssuerAddresses[allTicketIssuerStructs[ticketIssuerAddress].listPointerT] == ticketIssuerAddress) {
-    //   // Metadata is being updated, as records of ticketissuer already are stored. Emits event for ticket explorer.
-    //     emit updateOfTicketeerMetadata(ticketIssuerAddress, _timestamp);
-    // }
 
     allTicketIssuerStructs[ticketIssuerAddress].ticketissuer_address = ticketIssuerAddress;
     allTicketIssuerStructs[ticketIssuerAddress].ticketissuer_name = ticketIssuerName;
@@ -117,11 +116,6 @@ contract getNFTMetaDataIssuersEvents {
   }
 
   function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory latitude, string memory longitude, uint256 startingTime, address tickeerAddress, string memory callbackUrl) onlyFactory() public virtual returns(bool success) {
-
-    // if (eventAddresses[allEventStructs[eventAddress].listPointerE] == eventAddress) {
-    //   // Metadata is being updated, as records of event was already stored. Emits event for ticket explorer.
-    //     emit updateOfEventMetadata(eventAddress, _timestamp);
-    // }
 
     allEventStructs[eventAddress].event_name = eventName;
     allEventStructs[eventAddress].shop_url = shopUrl;

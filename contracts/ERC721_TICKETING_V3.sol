@@ -29,6 +29,11 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     event txSecondary(address originAddress, address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
     event txScan(address originAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
     event doubleScan(address indexed originAddress, uint256 indexed nftIndex, uint indexed _timestamp);
+    event doubleNFTAlert(address indexed destinationAddress, uint indexed _timestamp);
+    event noCoinerAlert(address indexed originAddress, uint indexed _timestamp);
+    event illegalTransfer(address indexed originAddress,address indexed destinationAddress,uint256 indexed nftIndex, uint _timestamp);
+
+
 
     // Whtielisted EOA account with "ADMIN" role
     modifier onlyAdmin() {
@@ -137,23 +142,23 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     */
     function secondaryTransfer(address originAddress, address destinationAddress) public onlyRelayer() {
 
-        uint256 nftIndex;
-        nftIndex = tokenOfOwnerByIndex(originAddress, 0);
-
         // In order to transfer an getNFT, the origin needs to own an NFT
         if (balanceOf(originAddress) == 0) {
             emit noCoinerAlert(originAddress, block.timestamp);
-            return; // return as it will fail otherwise
+            return; // return function as it will fail otherwise (no nft to transfer)
         }
+
+        uint256 nftIndex;
+        nftIndex = tokenOfOwnerByIndex(originAddress, 0);
+
+        // /// Verify if originAddress is owner of nftIndex
+        require(ownerOf(nftIndex) == originAddress, "GET TX FAILED Func: secondaryTransfer - transfer of nftIndexx that is not owned by owner");
         
         // Check if the destinationAddress already owns getNFTs (this would be weird!)
         if (ownerOf(nftIndex) != originAddress) {
             emit illegalTransfer(originAddress, destinationAddress, nftIndex, block.timestamp);
             return;
         }        
-
-        // /// Verify if originAddress is owner of nftIndex
-        // require(ownerOf(nftIndex) == originAddress, "GET TX FAILED Func: secondaryTransfer - transfer of nftIndexx that is not owned by owner");
         
         /// Transfer the NFT to destinationAddress
         _relayerTransferFrom(originAddress, destinationAddress, nftIndex);
