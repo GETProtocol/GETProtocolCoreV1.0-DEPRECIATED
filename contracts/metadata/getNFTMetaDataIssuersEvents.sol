@@ -58,13 +58,20 @@ contract getNFTMetaDataIssuersEvents {
   address[] public eventAddresses;  
   
   
-  function addnftIndex(address eventAddress, uint256 nftIndex, uint256 pricePaid) public onlyFactory() {
+  function addNftMeta(address eventAddress, uint256 nftIndex, uint256 pricePaid) public onlyFactory() {
       EventStruct storage c = allEventStructs[eventAddress];
       c.amountNFTs++;
       c.orders[nftIndex] = Order({_nftIndex: nftIndex, _pricePaid: pricePaid});
       // c.orders[c.amountNFTs++] = Order({_nftIndex: nftIndex, _price: pricePaid});
       c.grossRevenue += pricePaid;
   }
+
+  // function editNftMeta(address eventAddress, uint256 nftIndex, uint256 pricePaid) public onlyFactory() {
+  //     EventStruct storage c = allEventStructs[eventAddress];
+  //     c.orders[nftIndex] = Order({_nftIndex: nftIndex, _pricePaid: pricePaid});
+  //     // c.orders[c.amountNFTs++] = Order({_nftIndex: nftIndex, _price: pricePaid});
+  //     c.grossRevenue += pricePaid;
+  // }
 
   function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) onlyFactory() public virtual returns(bool success) { 
 
@@ -91,7 +98,7 @@ contract getNFTMetaDataIssuersEvents {
       allTicketIssuerStructs[ticketIssuerAddress].ticketissuer_url);
   }
 
-  function newEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory coordinates, uint256 startingTime, address tickeerAddress) onlyFactory() public virtual returns(bool success) {
+  function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory coordinates, uint256 startingTime, address tickeerAddress) onlyFactory() public virtual returns(bool success) {
 
     // if (eventAddresses[allEventStructs[eventAddress].listPointerE] == eventAddress) {
     //   // Metadata is being updated, as records of event was already stored. Emits event for ticket explorer.

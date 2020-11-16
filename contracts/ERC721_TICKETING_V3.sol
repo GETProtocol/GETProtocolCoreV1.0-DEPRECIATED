@@ -77,8 +77,8 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
      * @dev Register address data of new event
      * @notice Data will be publically available for the getNFT ticket explorer. 
      */ 
-    function newEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory coordinates, uint256 startingTime, address tickeerAddress) public onlyRelayer() returns(bool success) {
-        return METADATA_IE.newEvent(eventAddress, eventName, shopUrl, coordinates, startingTime, tickeerAddress);
+    function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory coordinates, uint256 startingTime, address tickeerAddress) public onlyRelayer() returns(bool success) {
+        return METADATA_IE.registerEvent(eventAddress, eventName, shopUrl, coordinates, startingTime, tickeerAddress);
     }
 
     /** 
@@ -116,7 +116,7 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
         _setnftScannedBool(nftIndex, false);
 
         // Push Order data primary sale to metadata contract
-        METADATA_IE.addnftIndex(eventAddress, nftIndex, 50);
+        METADATA_IE.addNftMeta(eventAddress, nftIndex, 50);
         
         // Fetch blocktime as to assist ticket explorer for ordering
         emit txPrimaryMint(destinationAddress, ticketIssuerAddress, nftIndex, block.timestamp);
@@ -132,7 +132,6 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     * @param destinationAddress addres of the to-be owner of the NFT 
     */
     function secondaryTransfer(address originAddress, address destinationAddress) public onlyRelayer() {
-
         // In order to move an getNFT the 
         uint256 nftIndex;
 
@@ -152,9 +151,9 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
         _relayerTransferFrom(originAddress, destinationAddress, nftIndex);
 
         // Push Order data secondary sale to metadata contract
-        address _eventAddress;
-        _eventAddress = getEventAddress(nftIndex);
-        METADATA_IE.addnftIndex(_eventAddress, nftIndex, 60);
+        // address _eventAddress;
+        // _eventAddress = _eventAddresses[nftIndex];
+        // METADATA_IE.addnftIndex(_eventAddress, nftIndex, 60);
 
         /// Emit event of secondary transfer
         emit txSecondary(originAddress, destinationAddress, getAddressOfTicketIssuer(nftIndex), nftIndex, block.timestamp);
