@@ -47,6 +47,7 @@ contract getNFTMetaDataIssuersEvents {
         address ticketissuer_address;
         uint256 amountNFTs;
         uint256 grossRevenue;
+        string callback_url;
         TicketIssuerStruct ticketIssuerMetaData;
         mapping (uint256 => Order) orders;
         uint256 listPointerE;
@@ -115,7 +116,7 @@ contract getNFTMetaDataIssuersEvents {
       allTicketIssuerStructs[ticketIssuerAddress].ticketissuer_url);
   }
 
-  function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory latitude, string memory longitude, uint256 startingTime, address tickeerAddress) onlyFactory() public virtual returns(bool success) {
+  function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory latitude, string memory longitude, uint256 startingTime, address tickeerAddress, string memory callbackUrl) onlyFactory() public virtual returns(bool success) {
 
     // if (eventAddresses[allEventStructs[eventAddress].listPointerE] == eventAddress) {
     //   // Metadata is being updated, as records of event was already stored. Emits event for ticket explorer.
@@ -130,7 +131,9 @@ contract getNFTMetaDataIssuersEvents {
 
     allEventStructs[eventAddress].start_time = startingTime;
     allEventStructs[eventAddress].ticketissuer_address = tickeerAddress;
-    
+
+    allEventStructs[eventAddress].callback_url = callbackUrl;
+
     TicketIssuerStruct storage t = allTicketIssuerStructs[tickeerAddress];
     allEventStructs[eventAddress].ticketIssuerMetaData = t;
     

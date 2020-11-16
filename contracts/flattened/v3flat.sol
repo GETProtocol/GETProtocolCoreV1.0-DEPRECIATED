@@ -1673,7 +1673,7 @@ pragma solidity ^0.6.0;
 interface MetaDataIssuersEvents {
     function newTicketIssuer(address ticketIssuerAddress, string calldata ticketIssuerName, string calldata ticketIssuerUrl) external returns(bool success);
     function getTicketIssuer(address ticketIssuerAddress) external view  returns(address, string memory ticketIssuerName, string memory ticketIssuerUrl);
-    function registerEvent(address eventAddress, string calldata eventName, string calldata shopUrl, string calldata latitude, string calldata longitude, uint256 startingTime, address tickeerAddress) external returns(bool success);
+    function registerEvent(address eventAddress, string calldata eventName, string calldata shopUrl, string calldata latitude, string calldata longitude, uint256 startingTime, address tickeerAddress, string calldata callbackUrl) external returns(bool success);
     function addNftMeta(address eventAddress, uint256 nftIndex, uint256 pricePaid) external;
     function getEventDataAll(address eventAddress) external view returns(string memory eventName, string memory shopUrl, uint startTime, string memory ticketIssuerName, address, string memory ticketIssuerUrl);
     function isEvent(address eventAddress) external view returns(bool isIndeed);
@@ -1772,8 +1772,8 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
      * @dev Register address data of new event
      * @notice Data will be publically available for the getNFT ticket explorer. 
      */ 
-    function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory latitude, string memory longitude, uint256 startingTime, address tickeerAddress) public onlyRelayer() returns(bool success) {
-        return METADATA_IE.registerEvent(eventAddress, eventName, shopUrl, latitude, longitude, startingTime, tickeerAddress);
+    function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory latitude, string memory longitude, uint256 startingTime, address tickeerAddress, string memory callbackUrl) public onlyRelayer() returns(bool success) {
+        return METADATA_IE.registerEvent(eventAddress, eventName, shopUrl, latitude, longitude, startingTime, tickeerAddress, callbackUrl);
     }
 
     /** 
@@ -1792,22 +1792,26 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     */
     function primaryMint(address destinationAddress, address ticketIssuerAddress, address eventAddress, string memory ticketMetadata) public onlyRelayer() returns (uint256) {
 
-        /// Fetches nftIndex and autoincrements
+        // Check if the destinationAddress already owns getNFTs (this would be weird!)
+        if (balanceOf(destinationAddress) != 0) {
+            emit doubleNFTAlert(destinationAddress, block.timestamp);
+        }
+        
+        /// Fetch nftIndex, autoincrement & mint
         _nftIndexs.increment();
         uint256 nftIndex = _nftIndexs.current();
-        
         _mint(destinationAddress, nftIndex);
-        
-        require(_exists(nftIndex), "GET TX FAILED Func: primaryMint : Nonexistent nftIndex");
 
-        // Storing the address of the ticketIssuer in the NFT
+        // Storing the address of the ticketIssuer in the getNFT
         _markTicketIssuerAddress(nftIndex, ticketIssuerAddress);
+        
+        // Storing the address of the event in the getNFT
         _markEventAddress(nftIndex, eventAddress);
         
         /// Storing the ticketMetadata in the NFT        
         _setnftMetadata(nftIndex, ticketMetadata);
         
-        // Set scanned state to false (unscanned)
+        // Set scanned state to false (unscanned state)
         _setnftScannedBool(nftIndex, false);
 
         // Push Order data primary sale to metadata contract
@@ -1827,20 +1831,24 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     * @param destinationAddress addres of the to-be owner of the NFT 
     */
     function secondaryTransfer(address originAddress, address destinationAddress) public onlyRelayer() {
-        // In order to move an getNFT the 
-        uint256 nftIndex;
 
-        // A getNFT can only have 1 NFT per address, so this function will always fetch 
+        uint256 nftIndex;
         nftIndex = tokenOfOwnerByIndex(originAddress, 0);
 
-        // TODO -> TX needs to throw if originAddress does not own an getNFT.
-        require(_exists(nftIndex), "GET TX FAILED Func: secondaryTransfer : Nonexistent nftIndex");
-
-        /// Verify if originAddress is owner of nftIndex
-        require(ownerOf(nftIndex) == originAddress, "GET TX FAILED Func: secondaryTransfer - transfer of nftIndexx that is not owned by owner");
+        // In order to transfer an getNFT, the origin needs to own an NFT
+        if (balanceOf(originAddress) == 0) {
+            emit noCoinerAlert(originAddress, block.timestamp);
+            return; // return as it will fail otherwise
+        }
         
-        /// Verify if the destinationAddress isn't burn-address
-        require(destinationAddress != address(0), "GET TX FAILED Func:secondaryTransfer -  transfer to the zero address");
+        // Check if the destinationAddress already owns getNFTs (this would be weird!)
+        if (ownerOf(nftIndex) != originAddress) {
+            emit illegalTransfer(originAddress, destinationAddress, nftIndex, block.timestamp);
+            return;
+        }        
+
+        // /// Verify if originAddress is owner of nftIndex
+        // require(ownerOf(nftIndex) == originAddress, "GET TX FAILED Func: secondaryTransfer - transfer of nftIndexx that is not owned by owner");
         
         /// Transfer the NFT to destinationAddress
         _relayerTransferFrom(originAddress, destinationAddress, nftIndex);
