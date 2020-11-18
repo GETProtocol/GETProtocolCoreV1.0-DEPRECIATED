@@ -1673,7 +1673,7 @@ pragma solidity ^0.6.0;
 interface MetaDataIssuersEvents {
     function newTicketIssuer(address ticketIssuerAddress, string calldata ticketIssuerName, string calldata ticketIssuerUrl) external returns(bool success);
     function getTicketIssuer(address ticketIssuerAddress) external view  returns(address, string memory ticketIssuerName, string memory ticketIssuerUrl);
-    function registerEvent(address eventAddress, string calldata eventName, string calldata shopUrl, string calldata latitude, string calldata longitude, uint256 startingTime, address tickeerAddress, string calldata callbackUrl) external returns(bool success);
+    function registerEvent(address eventAddress, string calldata eventName, string calldata shopUrl, string calldata latitude, string calldata longitude, uint256 startingTime, address ticketIssuer, string calldata callbackUrl) external returns(bool success);
     function addNftMetaPrimary(address eventAddress, uint256 nftIndex, uint256 pricePaid) external;
     function addNftMetaSecondary(address eventAddress, uint256 nftIndex, uint256 pricePaid) external;
     function getEventDataAll(address eventAddress) external view returns(string memory eventName, string memory shopUrl, uint startTime, string memory ticketIssuerName, address, string memory ticketIssuerUrl);
@@ -1729,6 +1729,8 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     event doubleNFTAlert(address indexed destinationAddress, uint indexed _timestamp);
     event noCoinerAlert(address indexed originAddress, uint indexed _timestamp);
     event illegalTransfer(address indexed originAddress,address indexed destinationAddress,uint256 indexed nftIndex, uint _timestamp);
+    event illegalScan(address indexed originAddress, uint256 indexed nftIndex, uint indexed _timestamp);
+
 
 
 
@@ -1755,42 +1757,6 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
         require(BOUNCER.hasRole(FACTORY_ROLE, msg.sender), "ACCESS DENIED - Restricted to registered getNFT Factory contracts.");
         _;
     }
-
-    /** 
-     * @dev Set event_metadata_TE_address for NFT Factory contract (used to store metadata of events and ticketIssuer - TE)
-     */ 
-    function updategetNFTMetaDataIssuersEvents(address _new_metadata_TE) public onlyAdmin() {
-        METADATA_IE = MetaDataIssuersEvents(_new_metadata_TE);
-    }
-
-    function updateBouncerContract(address _new_bouncer_address) public onlyAdmin() {
-        BOUNCER = AccessContractGET(_new_bouncer_address);
-    }
-
-    /** 
-     * @dev Register address data of new ticketIssuer
-     * @notice Data will be publically available for the getNFT ticket explorer. 
-     */ 
-    function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) public onlyRelayer() returns(bool success) {
-        return METADATA_IE.newTicketIssuer(ticketIssuerAddress, ticketIssuerName, ticketIssuerUrl);
-    }
-
-    /** 
-     * @dev Register address data of new event
-     * @notice Data will be publically available for the getNFT ticket explorer. 
-     */ 
-    function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory latitude, string memory longitude, uint256 startingTime, address tickeerAddress, string memory callbackUrl) public onlyRelayer() returns(bool success) {
-        return METADATA_IE.registerEvent(eventAddress, eventName, shopUrl, latitude, longitude, startingTime, tickeerAddress, callbackUrl);
-    }
-
-    /** 
-     * @dev Register address data of new ticketIssuer
-     * @notice Data will be publically available for the getNFT ticket explorer. 
-     */ 
-    function getEventDataAll(address eventAddress) public view returns(string memory eventName, string memory shopUrl, uint startTime, string memory ticketIssuerName, address, string memory ticketIssuerUrl) {
-        return METADATA_IE.getEventDataAll(eventAddress);
-    }
-
 
     /**  onlyRelayer - caller needs to be whitelisted relayer
     * @notice In the first transaction the ticketMetadata is stored in the metadata of the NFT.
@@ -1876,6 +1842,11 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     */
     function scanNFT(address originAddress) public onlyRelayer() {
 
+        if (balanceOf(originAddress) == 0) {
+            emit illegalScan(originAddress, nftIndex, block.timestamp);
+            return; // return function as it will fail otherwise (no nft to scan)
+        }
+
         uint256 nftIndex; 
         nftIndex = tokenOfOwnerByIndex(originAddress, 0);
 
@@ -1897,6 +1868,49 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     }
 
     /** 
+     * @dev Set event_metadata_TE_address for NFT Factory contract (used to store metadata of events and ticketIssuer - TE)
+     */ 
+    function updategetNFTMetaDataIssuersEvents(address _new_metadata_TE) public onlyAdmin() {
+        METADATA_IE = MetaDataIssuersEvents(_new_metadata_TE);
+    }
+
+    function updateBouncerContract(address _new_bouncer_address) public onlyAdmin() {
+        BOUNCER = AccessContractGET(_new_bouncer_address);
+    }
+
+    /** 
+     * @dev Register address data of new ticketIssuer
+     * @notice Data will be publically available for the getNFT ticket explorer. 
+     */ 
+    function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) public onlyRelayer() returns(bool success) {
+        return METADATA_IE.newTicketIssuer(ticketIssuerAddress, ticketIssuerName, ticketIssuerUrl);
+    }
+
+    /** 
+     * @dev Register address data of new event
+     * @notice Data will be publically available for the getNFT ticket explorer. 
+     */ 
+    function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory latitude, string memory longitude, uint256 startingTime, address ticketIssuer, string memory callbackUrl) public onlyRelayer() returns(bool success) {
+        return METADATA_IE.registerEvent(eventAddress, eventName, shopUrl, latitude, longitude, startingTime, ticketIssuer, callbackUrl);
+    }
+
+    /** 
+     * @dev Register address data of new ticketIssuer
+     * @notice Data will be publically available for the getNFT ticket explorer. 
+     */ 
+    function getEventDataAll(address eventAddress) public view returns(string memory eventName, string memory shopUrl, uint startTime, string memory ticketIssuerName, address, string memory ticketIssuerUrl) {
+        return METADATA_IE.getEventDataAll(eventAddress);
+    }
+
+    /**
+    * @dev Returns the address of the ticketIssuerAddress that controls the NFT
+     */
+    function getAddressOfTicketIssuer(uint256 nftIndex) public view returns (address) {
+        require(_exists(nftIndex), "GET TX FAILED Func: getAddressOfTicketIssuer : Nonexistent nftIndex");
+        return _ticketIssuerAddresses[nftIndex];
+    }
+
+    /** 
      * @dev Internal function that stores the _ticketIssuerAddress in the NFT metadata.
      * @notice For minting the destinationAddress is always a ticketIssuerAddress 
      */ 
@@ -1912,14 +1926,6 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     function _markEventAddress(uint256 nftIndex, address _eventAddress) internal {
         require(_exists(nftIndex), "GET TX FAILED Func: _markEventAddress : Nonexistent nftIndex");
         _eventAddresses[nftIndex] = _eventAddress;
-    }
-
-    /**
-    * @dev Returns the address of the ticketIssuerAddress that controls the NFT
-     */
-    function getAddressOfTicketIssuer(uint256 nftIndex) public view returns (address) {
-        require(_exists(nftIndex), "GET TX FAILED Func: getAddressOfTicketIssuer : Nonexistent nftIndex");
-        return _ticketIssuerAddresses[nftIndex];
     }
 
     /**

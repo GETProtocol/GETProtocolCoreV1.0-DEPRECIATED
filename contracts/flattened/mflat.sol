@@ -33,8 +33,6 @@ contract getNFTMetaDataIssuersEvents {
     event newTicketIssuerMetaData(address indexed ticketIssuerAddress, string indexed ticketIssuerName, uint256 indexed _timestamp);
     event primaryMarketNFTSold(address indexed eventAddress, uint256 indexed nftIndex, uint256 indexed pricePaid);
     event secondaryMarketNFTSold(address indexed eventAddress, uint256 indexed nftIndex, uint256 indexed pricePaid);
-    // event updateOfEventMetadata(address indexed eventAddress, uint256 indexed _timestamp);
-    // event updateOfTicketeerMetadata(address indexed ticketIssuerAddress, uint256 indexed _timestamp);
 
     struct OrdersPrimary {
         uint256 _nftIndex;
@@ -85,7 +83,6 @@ contract getNFTMetaDataIssuersEvents {
       EventStruct storage c = allEventStructs[eventAddress];
       c.amountNFTs++;
       c.ordersprimary[nftIndex] = OrdersPrimary({_nftIndex: nftIndex, _pricePaid: pricePaid});
-      // c.orders[c.amountNFTs++] = Order({_nftIndex: nftIndex, _price: pricePaid});
       c.grossRevenuePrimary += pricePaid;
       emit primaryMarketNFTSold(eventAddress, nftIndex, pricePaid);
   }
@@ -93,7 +90,6 @@ contract getNFTMetaDataIssuersEvents {
   function addNftMetaSecondary(address eventAddress, uint256 nftIndex, uint256 pricePaid) public onlyFactory() {
       EventStruct storage c = allEventStructs[eventAddress];
       c.orderssecondary[nftIndex] = OrdersSecondary({_nftIndex: nftIndex, _pricePaid: pricePaid});
-      // c.orders[c.amountNFTs++] = Order({_nftIndex: nftIndex, _price: pricePaid});
       c.grossRevenueSecondary += pricePaid;
       emit secondaryMarketNFTSold(eventAddress, nftIndex, pricePaid);
   }
@@ -118,20 +114,19 @@ contract getNFTMetaDataIssuersEvents {
       allTicketIssuerStructs[ticketIssuerAddress].ticketissuer_url);
   }
 
-  function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory latitude, string memory longitude, uint256 startingTime, address tickeerAddress, string memory callbackUrl) onlyFactory() public virtual returns(bool success) {
+  function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory latitude, string memory longitude, uint256 startingTime, address ticketIssuer, string memory callbackUrl) onlyFactory() public virtual returns(bool success) {
 
     allEventStructs[eventAddress].event_name = eventName;
     allEventStructs[eventAddress].shop_url = shopUrl;
-    // allEventStructs[eventAddress].location_cord = coordinates;
     allEventStructs[eventAddress].latitude = latitude;
     allEventStructs[eventAddress].longitude = longitude;
 
     allEventStructs[eventAddress].start_time = startingTime;
-    allEventStructs[eventAddress].ticketissuer_address = tickeerAddress;
+    allEventStructs[eventAddress].ticketissuer_address = ticketIssuer;
 
     allEventStructs[eventAddress].callback_url = callbackUrl;
 
-    TicketIssuerStruct storage t = allTicketIssuerStructs[tickeerAddress];
+    TicketIssuerStruct storage t = allTicketIssuerStructs[ticketIssuer];
     allEventStructs[eventAddress].ticketIssuerMetaData = t;
     
     eventAddresses.push(eventAddress);
@@ -147,12 +142,9 @@ contract getNFTMetaDataIssuersEvents {
     return(
         allEventStructs[eventAddress].event_name, 
         allEventStructs[eventAddress].shop_url,
-        // allEventStructs[eventAddress].latitude,
-        // allEventStructs[eventAddress].longitude,
 
         allEventStructs[eventAddress].start_time,
         allEventStructs[eventAddress].ticketissuer_address,
-        // allEventStructs[eventAddress].ticketIssuerMetaData.ticketissuer_address,
         allEventStructs[eventAddress].amountNFTs,
         allEventStructs[eventAddress].grossRevenuePrimary);
   }

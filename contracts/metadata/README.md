@@ -58,10 +58,15 @@ Event tickets are often split up in different types (general admission, weekende
 
 Example metadata contract storage:
 <pre><code>
-    struct Order {
+    struct OrdersPrimary {
         uint256 _nftIndex;
         uint256 _pricePaid;
     }
+
+    struct OrdersSecondary {
+        uint256 _nftIndex;
+        uint256 _pricePaid;
+    }    
 
     struct TicketIssuerStruct {
         address ticketissuer_address;
@@ -70,22 +75,29 @@ Example metadata contract storage:
         uint256 listPointerT;
     }
 
+
     struct EventStruct {
         address event_address;
         string event_name;
         string shop_url;
-        string location_cord;
+        string latitude;
+        string longitude;
         uint256 start_time;
         address ticketissuer_address;
         uint256 amountNFTs;
-        uint256 grossRevenue;
+        uint256 grossRevenuePrimary;
+        uint256 grossRevenueSecondary;
+        string callback_url;
         TicketIssuerStruct ticketIssuerMetaData;
-        mapping (uint256 => Order) orders;
+        mapping (uint256 => OrdersPrimary) ordersprimary;
+        mapping (uint256 => OrdersSecondary) orderssecondary;
         uint256 listPointerE;
     }
 </code></pre>
 
 The `EventStruct` has a nested reference to the `TicketIssuerStruct`. This means that when referring to a `EventStruct` a link to the issuer (ticketissuers) metadata is included. 
+
+There are 2 Order structs `OrdersPrimary` and `OrdersSecondary`. 
 
 ---
 
@@ -116,17 +128,14 @@ Variables TicketIssuer (subject to change/discussion):
 
 #### 4-B. Reading Metadata 
 
-**1. Function getEventDataAll**
+**1. getEventDataAll**
 Fetches all the metadata of both the event & ticketissuer struct. 
 
 <pre><code>
     getEventDataAll(address eventAddress) public view returns(string memory eventName, string memory shopUrl, string memory locationCord, uint startTime, string memory ticketissuerName, address, string memory ticketissuerUrl)
 </code></pre>
 
-**2. Function getEventDataQuick**
-Fetches only minally required metadata from the event & ticketissuer struct (faster). 
+**1. getEventDataAll**
 
-<pre><code>
-  function getEventDataQuick(address eventAddress) public view returns(address, string memory eventName, address ticketissuerAddress, string memory ticketissuerName)
-</code></pre>
+
 

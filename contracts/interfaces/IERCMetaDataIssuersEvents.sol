@@ -3,7 +3,7 @@ pragma solidity ^0.6.0;
 interface MetaDataIssuersEvents {
     function newTicketIssuer(address ticketIssuerAddress, string calldata ticketIssuerName, string calldata ticketIssuerUrl) external returns(bool success);
     function getTicketIssuer(address ticketIssuerAddress) external view  returns(address, string memory ticketIssuerName, string memory ticketIssuerUrl);
-    function registerEvent(address eventAddress, string calldata eventName, string calldata shopUrl, string calldata latitude, string calldata longitude, uint256 startingTime, address tickeerAddress, string calldata callbackUrl) external returns(bool success);
+    function registerEvent(address eventAddress, string calldata eventName, string calldata shopUrl, string calldata latitude, string calldata longitude, uint256 startingTime, address ticketIssuer, string calldata callbackUrl) external returns(bool success);
     function addNftMetaPrimary(address eventAddress, uint256 nftIndex, uint256 pricePaid) external;
     function addNftMetaSecondary(address eventAddress, uint256 nftIndex, uint256 pricePaid) external;
     function getEventDataAll(address eventAddress) external view returns(string memory eventName, string memory shopUrl, uint startTime, string memory ticketIssuerName, address, string memory ticketIssuerUrl);
