@@ -1674,13 +1674,15 @@ interface MetaDataIssuersEvents {
     function newTicketIssuer(address ticketIssuerAddress, string calldata ticketIssuerName, string calldata ticketIssuerUrl) external returns(bool success);
     function getTicketIssuer(address ticketIssuerAddress) external view  returns(address, string memory ticketIssuerName, string memory ticketIssuerUrl);
     function registerEvent(address eventAddress, string calldata eventName, string calldata shopUrl, string calldata latitude, string calldata longitude, uint256 startingTime, address tickeerAddress, string calldata callbackUrl) external returns(bool success);
-    function addNftMeta(address eventAddress, uint256 nftIndex, uint256 pricePaid) external;
+    function addNftMetaPrimary(address eventAddress, uint256 nftIndex, uint256 pricePaid) external;
+    function addNftMetaSecondary(address eventAddress, uint256 nftIndex, uint256 pricePaid) external;
     function getEventDataAll(address eventAddress) external view returns(string memory eventName, string memory shopUrl, uint startTime, string memory ticketIssuerName, address, string memory ticketIssuerUrl);
     function isEvent(address eventAddress) external view returns(bool isIndeed);
     function getEventCount(address ticketIssuerAddress) external view returns(uint eventCount);
     function isTicketIssuer(address ticketIssuerAddress) external view returns(bool isIndeed);
     function getTicketIssuerCount() external view returns (uint ticketIssuerCount);
-
+    function fetchPrimaryOrderNFT(address eventAddress, uint256 nftIndex) external view returns(uint256 _nftIndex, uint256 _pricePaid);
+    function fetchSecondaryOrderNFT(address eventAddress, uint256 nftIndex) external view returns(uint256 _nftIndex, uint256 _pricePaid);
 }
 
 // File: contracts/interfaces/IERCAccessControlGET.sol
@@ -1820,7 +1822,7 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
         _setnftScannedBool(nftIndex, false);
 
         // Push Order data primary sale to metadata contract
-        METADATA_IE.addNftMeta(eventAddress, nftIndex, 50);
+        METADATA_IE.addNftMetaPrimary(eventAddress, nftIndex, 50);
         
         // Fetch blocktime as to assist ticket explorer for ordering
         emit txPrimaryMint(destinationAddress, ticketIssuerAddress, nftIndex, block.timestamp);
@@ -1859,9 +1861,9 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
         _relayerTransferFrom(originAddress, destinationAddress, nftIndex);
 
         // Push Order data secondary sale to metadata contract
-        // address _eventAddress;
-        // _eventAddress = _eventAddresses[nftIndex];
-        // METADATA_IE.addnftIndex(_eventAddress, nftIndex, 60);
+        address _eventAddress;
+        _eventAddress = _eventAddresses[nftIndex];
+        METADATA_IE.addNftMetaSecondary(_eventAddress, nftIndex, 60);
 
         /// Emit event of secondary transfer
         emit txSecondary(originAddress, destinationAddress, getAddressOfTicketIssuer(nftIndex), nftIndex, block.timestamp);

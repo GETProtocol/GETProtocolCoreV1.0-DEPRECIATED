@@ -88,13 +88,6 @@ contract getNFTMetaDataIssuersEvents {
       emit secondaryMarketNFTSold(eventAddress, nftIndex, pricePaid);
   }
 
-  // function editNftMeta(address eventAddress, uint256 nftIndex, uint256 pricePaid) public onlyFactory() {
-  //     EventStruct storage c = allEventStructs[eventAddress];
-  //     c.orders[nftIndex] = Order({_nftIndex: nftIndex, _pricePaid: pricePaid});
-  //     // c.orders[c.amountNFTs++] = Order({_nftIndex: nftIndex, _price: pricePaid});
-  //     c.grossRevenue += pricePaid;
-  // }
-
   function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) onlyFactory() public virtual returns(bool success) { 
 
     allTicketIssuerStructs[ticketIssuerAddress].ticketissuer_address = ticketIssuerAddress;
@@ -140,7 +133,7 @@ contract getNFTMetaDataIssuersEvents {
   }
 
  
-  function getEventDataAll(address eventAddress) public virtual view returns(string memory eventName, string memory shopUrl, uint256 startTime, address, uint256 amountNFTs, uint256 grossRevenue) {
+  function getEventDataAll(address eventAddress) public virtual view returns(string memory eventName, string memory shopUrl, uint256 startTime, address, uint256 amountNFTs, uint256 grossRevenuePrimary) {
     return(
         allEventStructs[eventAddress].event_name, 
         allEventStructs[eventAddress].shop_url,
@@ -151,13 +144,20 @@ contract getNFTMetaDataIssuersEvents {
         allEventStructs[eventAddress].ticketissuer_address,
         // allEventStructs[eventAddress].ticketIssuerMetaData.ticketissuer_address,
         allEventStructs[eventAddress].amountNFTs,
-        allEventStructs[eventAddress].grossRevenue);
+        allEventStructs[eventAddress].grossRevenuePrimary);
   }
   
-  function fetchOrderNFT(address eventAddress, uint256 nftIndex) public view returns(uint256 _nftIndex, uint256 _pricePaid) {
+  function fetchPrimaryOrderNFT(address eventAddress, uint256 nftIndex) public view returns(uint256 _nftIndex, uint256 _pricePaid) {
     return(
-        allEventStructs[eventAddress].orders[nftIndex]._nftIndex,
-        allEventStructs[eventAddress].orders[nftIndex]._pricePaid
+        allEventStructs[eventAddress].ordersprimary[nftIndex]._nftIndex,
+        allEventStructs[eventAddress].ordersprimary[nftIndex]._pricePaid
+        );
+  }
+
+  function fetchSecondaryOrderNFT(address eventAddress, uint256 nftIndex) public view returns(uint256 _nftIndex, uint256 _pricePaid) {
+    return(
+        allEventStructs[eventAddress].orderssecondary[nftIndex]._nftIndex,
+        allEventStructs[eventAddress].orderssecondary[nftIndex]._pricePaid
         );
   }
 
