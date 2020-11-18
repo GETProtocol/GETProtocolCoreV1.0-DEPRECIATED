@@ -55,7 +55,6 @@ contract getNFTMetaDataIssuersEvents {
         uint256 grossRevenuePrimary;
         uint256 grossRevenueSecondary;
         string callback_url;
-        TicketIssuerStruct ticketIssuerMetaData;
         mapping (uint256 => OrdersPrimary) ordersprimary;
         mapping (uint256 => OrdersSecondary) orderssecondary;
         uint256 listPointerE;
@@ -116,10 +115,6 @@ contract getNFTMetaDataIssuersEvents {
     allEventStructs[eventAddress].ticketissuer_address = ticketIssuer;
 
     allEventStructs[eventAddress].callback_url = callbackUrl;
-
-    TicketIssuerStruct storage t = allTicketIssuerStructs[ticketIssuer];
-    allEventStructs[eventAddress].ticketIssuerMetaData = t;
-    
     eventAddresses.push(eventAddress);
     allEventStructs[eventAddress].listPointerE = eventAddresses.length -1;
 
