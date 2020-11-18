@@ -46,7 +46,7 @@ contract ERC721_CLEAN is Context, ERC165, IERC721, IERC721Metadata, IERC721Enume
     string private _symbol;
 
     // Optional mapping for token URIs
-    mapping (uint256 => string) private _tokenURIs;
+    mapping (uint256 => string) public _tokenURIs;
 
     // Base URI
     string private _baseURI = "https://get-protocol.io/";

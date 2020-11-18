@@ -11,6 +11,7 @@ interface AccessContractGET {
 
 pragma solidity ^0.6.0;
 
+pragma experimental ABIEncoderV2;
 
 contract getNFTMetaDataIssuersEvents {
     bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
@@ -75,7 +76,7 @@ contract getNFTMetaDataIssuersEvents {
   address[] public ticketIssuerAddresses;
 
   // Mappings for the event data storage
-  mapping(address => EventStruct) allEventStructs;
+  mapping(address => EventStruct) public allEventStructs;
   address[] public eventAddresses;  
   
   

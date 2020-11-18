@@ -32,10 +32,7 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     event doubleNFTAlert(address indexed destinationAddress, uint indexed _timestamp);
     event noCoinerAlert(address indexed originAddress, uint indexed _timestamp);
     event illegalTransfer(address indexed originAddress,address indexed destinationAddress,uint256 indexed nftIndex, uint _timestamp);
-    event illegalScan(address indexed originAddress, uint256 indexed nftIndex, uint indexed _timestamp);
-
-
-
+    event illegalScan(address indexed originAddress, uint indexed _timestamp);
 
     // Whtielisted EOA account with "ADMIN" role
     modifier onlyAdmin() {
@@ -146,7 +143,7 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     function scanNFT(address originAddress) public onlyRelayer() {
 
         if (balanceOf(originAddress) == 0) {
-            emit illegalScan(originAddress, nftIndex, block.timestamp);
+            emit illegalScan(originAddress, block.timestamp);
             return; // return function as it will fail otherwise (no nft to scan)
         }
 
@@ -168,6 +165,26 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
         _setnftScannedBool(nftIndex, true);
         
         emit txScan(originAddress, destinationAddress, nftIndex, block.timestamp);
+    }
+
+    function getNFTByAddress(address originAddress) public view returns(uint256 nftIndex, bool _scanState, address _ticketIssuerA, address _eventAddress, string memory _metadata) { 
+        require(balanceOf(originAddress) != 0, "GET TX FAILED Func: getNFTByAddress - URI query for nonexistent token.");
+        return(
+            tokenOfOwnerByIndex(originAddress, 0),
+            _nftScanned[nftIndex],
+            _ticketIssuerAddresses[nftIndex],
+            _eventAddresses[nftIndex],
+            _tokenURIs[nftIndex]);
+    }
+
+    function getNFTByIndex(uint256 nftIndex) public view returns(address _originAddress, bool _scanState, address _ticketIssuerA, address _eventAddress, string memory _metadata) { 
+        require(_exists(nftIndex), "GET TX FAILED Func: getNFTByIndex - Query for nonexistent token");
+        return(
+            ownerOf(nftIndex),
+            _nftScanned[nftIndex],
+            _ticketIssuerAddresses[nftIndex],
+            _eventAddresses[nftIndex],
+            _tokenURIs[nftIndex]);
     }
 
     /** 
