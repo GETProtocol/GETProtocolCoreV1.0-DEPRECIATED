@@ -16,7 +16,6 @@ contract getNFTMetaDataIssuersEvents {
         _;
     } 
 
-
     address public deployeraddress = msg.sender;
     uint256 public deployertime = now;
 
@@ -158,11 +157,17 @@ contract getNFTMetaDataIssuersEvents {
     return eventAddresses.length;
   }
 
+    /**
+    * @dev TD
+    */
   function isTicketIssuer(address ticketIssuerAddress) public view returns(bool isIndeed) {
     if(ticketIssuerAddresses.length == 0) return false;
     return (ticketIssuerAddresses[allTicketIssuerStructs[ticketIssuerAddress].listPointerT] == ticketIssuerAddress);
   }
 
+    /**
+    * @dev TD
+    */
   function getTicketIssuerCount() public view returns(uint256 ticketIssuerCount) {
     return ticketIssuerAddresses.length;
   }

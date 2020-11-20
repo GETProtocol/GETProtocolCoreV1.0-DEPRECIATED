@@ -52,7 +52,9 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
         _;
     }
     
-    // Whitelisted Contract Address - A factory mints/issues getNFTs (the contract you are looking at). 
+    /** Whitelisted Contract Address - A factory mints/issues getNFTs (the contract you are looking at). 
+    * @dev after the deploy of a factory contract, the factory contract address needs to 
+    */
     modifier onlyFactory() {
         require(BOUNCER.hasRole(FACTORY_ROLE, msg.sender), "ACCESS DENIED - Restricted to registered getNFT Factory contracts.");
         _;
@@ -167,6 +169,11 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
         emit txScan(originAddress, destinationAddress, nftIndex, block.timestamp);
     }
 
+
+    /** 
+     * @dev returns metadata fields getNFT by orginAddress
+     * @notice if an address owned an getNFT in the past, but not anymore, this will return empty
+     */
     function getNFTByAddress(address originAddress) public view returns(uint256 nftIndex, bool _scanState, address _ticketIssuerA, address _eventAddress, string memory _metadata) { 
         require(balanceOf(originAddress) != 0, "GET TX FAILED Func: getNFTByAddress - URI query for nonexistent token.");
         return(
@@ -177,6 +184,10 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
             _tokenURIs[nftIndex]);
     }
 
+
+    /** 
+     * @dev returns all metadata of getNFT by nftIndex
+     */
     function getNFTByIndex(uint256 nftIndex) public view returns(address _originAddress, bool _scanState, address _ticketIssuerA, address _eventAddress, string memory _metadata) { 
         require(_exists(nftIndex), "GET TX FAILED Func: getNFTByIndex - Query for nonexistent token");
         return(
@@ -194,6 +205,10 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
         METADATA_IE = MetaDataIssuersEvents(_new_metadata_TE);
     }
 
+
+    /** 
+     * @dev updates bouncer contract used to validate all incoming txs/calls 
+     */
     function updateBouncerContract(address _new_bouncer_address) public onlyAdmin() {
         BOUNCER = AccessContractGET(_new_bouncer_address);
     }
@@ -250,7 +265,7 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
 
     /**
     * @dev Returns the Eventaddress of the getNFT
-     */
+    */
     function getEventAddress(uint256 nftIndex) public view returns (address) {
         require(_exists(nftIndex), "GET TX FAILED Func: getEventAddress : Nonexistent nftIndex");
         return _eventAddresses[nftIndex];
