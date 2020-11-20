@@ -53,8 +53,8 @@ Storage struct name: `Eventstruct`.
 The unique identifier of the event metadata struct is the `event_address`. This public key hash is set by the getNFT custody. Similar to the ticketissuer metadata, editing of previously submitted data is only possible by overriding (but using the same primary key - which is always an `address`).
 
 
-### 1-C. getEvent TicketType Metadata 
-Event tickets are often split up in different types (general admission, weekender, VIP).
+### 1-C. getEvent Orders Metadata 
+The GET Protocol indentifies 2 different types of orders. `OrdersPrimary` and `OrdersSecondary`. These structs store/register data about 
 
 Example metadata contract storage:
 <pre><code>
@@ -135,7 +135,10 @@ Fetches all the metadata of both the event & ticketissuer struct.
     getEventDataAll(address eventAddress) public view returns(string memory eventName, string memory shopUrl, string memory locationCord, uint startTime, string memory ticketissuerName, address, string memory ticketissuerUrl)
 </code></pre>
 
-**1. getEventDataAll**
+**2. getEventDataAll**
+
+
+
 
 
 
