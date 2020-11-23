@@ -27,11 +27,13 @@ contract getNFTMetaDataIssuersEvents {
     struct OrdersPrimary {
         uint256 _nftIndex;
         uint256 _pricePaid;
+        uint256 _orderTimeP;
     }
 
     struct OrdersSecondary {
         uint256 _nftIndex;
         uint256 _pricePaid;
+        uint256 _orderTimeS;
     }    
 
     struct TicketIssuerStruct {
@@ -67,16 +69,21 @@ contract getNFTMetaDataIssuersEvents {
   mapping(address => EventStruct) public allEventStructs;
   address[] public eventAddresses;  
   
-  
-  function addNftMetaPrimary(address eventAddress, uint256 nftIndex, uint256 pricePaid) public onlyFactory() {
+  /** 
+  * @dev TODO
+  */  
+  function addNftMetaPrimary(address eventAddress, uint256 nftIndex, uint256 orderTime, uint256 pricePaid) public onlyFactory() {
       EventStruct storage c = allEventStructs[eventAddress];
       c.amountNFTs++;
-      c.ordersprimary[nftIndex] = OrdersPrimary({_nftIndex: nftIndex, _pricePaid: pricePaid});
+      c.ordersprimary[nftIndex] = OrdersPrimary({_nftIndex: nftIndex, _pricePaid: pricePaid, _orderTime: orderTime});
       c.grossRevenuePrimary += pricePaid;
       emit primaryMarketNFTSold(eventAddress, nftIndex, pricePaid);
   }
 
-  function addNftMetaSecondary(address eventAddress, uint256 nftIndex, uint256 pricePaid) public onlyFactory() {
+  /** 
+  * @dev TODO
+  */  
+  function addNftMetaSecondary(address eventAddress, uint256 nftIndex, uint256 orderTime, uint256 pricePaid, _orderTime: orderTime) public onlyFactory() {
       EventStruct storage c = allEventStructs[eventAddress];
       c.orderssecondary[nftIndex] = OrdersSecondary({_nftIndex: nftIndex, _pricePaid: pricePaid});
       c.grossRevenueSecondary += pricePaid;

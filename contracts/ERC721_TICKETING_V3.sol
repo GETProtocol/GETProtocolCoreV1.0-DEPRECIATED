@@ -64,8 +64,9 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     * @notice In the first transaction the ticketMetadata is stored in the metadata of the NFT.
     * @param destinationAddress addres of the to-be owner of the getNFT 
     * @param ticketMetadata string containing the metadata about the ticket the NFT is representing (unstructured, set by ticketIssuer)
+    * @param orderTime timestamp of the moment the ticket-twin was sold in the primary market by ticketIssuer
     */
-    function primaryMint(address destinationAddress, address ticketIssuerAddress, address eventAddress, string memory ticketMetadata) public onlyRelayer() returns (uint256) {
+    function primaryMint(address destinationAddress, address ticketIssuerAddress, address eventAddress, string memory ticketMetadata, uint256 orderTime) public onlyRelayer() returns (uint256) {
 
         // Check if the destinationAddress already owns getNFTs (this would be weird!)
         if (balanceOf(destinationAddress) != 0) {
@@ -90,7 +91,7 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
         _setnftScannedBool(nftIndex, false);
 
         // Push Order data primary sale to metadata contract
-        METADATA_IE.addNftMetaPrimary(eventAddress, nftIndex, 50);
+        METADATA_IE.addNftMetaPrimary(eventAddress, nftIndex, orderTime, 50);
         
         // Fetch blocktime as to assist ticket explorer for ordering
         emit txPrimaryMint(destinationAddress, ticketIssuerAddress, nftIndex, block.timestamp);
@@ -103,9 +104,10 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     * @notice This function can only be called by a whitelisted relayer address (onlyRelayer).
     * @notice The nftIndex will be fetched by the contract using ownerOf(originAddress)
     * @param originAddress address of the current owner of the getNFT
-    * @param destinationAddress addres of the to-be owner of the NFT 
+    * @param destinationAddress address of the to-be(future) owner of the getNFT 
+    * @param orderTime timestamp of the moment the ticket-twin was sold in the secondary market by ticketIssuer
     */
-    function secondaryTransfer(address originAddress, address destinationAddress) public onlyRelayer() {
+    function secondaryTransfer(address originAddress, address destinationAddress, uint256 orderTime) public onlyRelayer() {
 
         // In order to transfer an getNFT, the origin needs to own an NFT
         if (balanceOf(originAddress) == 0) {
@@ -116,7 +118,7 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
         uint256 nftIndex;
         nftIndex = tokenOfOwnerByIndex(originAddress, 0);
 
-        // /// Verify if originAddress is owner of nftIndex
+        // Verify if originAddress is owner of nftIndex
         require(ownerOf(nftIndex) == originAddress, "GET TX FAILED Func: secondaryTransfer - transfer of nftIndexx that is not owned by owner");
         
         // Check if the destinationAddress already owns getNFTs (this would be weird!)
@@ -131,7 +133,7 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
         // Push Order data secondary sale to metadata contract
         address _eventAddress;
         _eventAddress = _eventAddresses[nftIndex];
-        METADATA_IE.addNftMetaSecondary(_eventAddress, nftIndex, 60);
+        METADATA_IE.addNftMetaSecondary(_eventAddress, nftIndex, orderTime, 60);
 
         /// Emit event of secondary transfer
         emit txSecondary(originAddress, destinationAddress, getAddressOfTicketIssuer(nftIndex), nftIndex, block.timestamp);
@@ -186,7 +188,7 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
 
 
     /** 
-     * @dev returns all metadata of getNFT by nftIndex
+     * @dev returns all metadata of getNFT by nftIndex - returns metadata stored in getNFTs - queries of ticket explorer
      */
     function getNFTByIndex(uint256 nftIndex) public view returns(address _originAddress, bool _scanState, address _ticketIssuerA, address _eventAddress, string memory _metadata) { 
         require(_exists(nftIndex), "GET TX FAILED Func: getNFTByIndex - Query for nonexistent token");
