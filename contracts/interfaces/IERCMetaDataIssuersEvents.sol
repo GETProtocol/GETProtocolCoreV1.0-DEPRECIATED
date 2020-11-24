@@ -13,6 +13,6 @@ interface MetaDataIssuersEvents {
     function getTicketIssuerCount() external view returns (uint ticketIssuerCount);
     function fetchPrimaryOrderNFT(address eventAddress, uint256 nftIndex) external view returns(uint256 _nftIndex, uint256 _pricePaid);
     function fetchSecondaryOrderNFT(address eventAddress, uint256 nftIndex) external view returns(uint256 _nftIndex, uint256 _pricePaid);
-    function getNFTByAddress(address originAddress) external view returns(uint256 nftIndex, bool _scanState, address _ticketIssuerA, address _eventAddress, string calldata _metadata);
-    function getNFTByIndex(uint256 nftIndex) external view returns(address _originAddress, bool _scanState, address _ticketIssuerA, address _eventAddress, string calldata _metadata);
+    function getNFTByAddress(address originAddress) external view returns(uint256 nftIndex, bool _scanState, address _ticketIssuerA, address _eventAddress, string memory _metadata);
+    function getNFTByIndex(uint256 nftIndex) external view returns(address _originAddress, bool _scanState, address _ticketIssuerA, address _eventAddress, string memory _metadata);
 }

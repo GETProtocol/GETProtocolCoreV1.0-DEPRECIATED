@@ -4,8 +4,9 @@ import "./ERC721_CLEAN.sol";
 import "./Counters.sol";
 import "./interfaces/IERCMetaDataIssuersEvents.sol";
 import "./interfaces/IERCAccessControlGET.sol";
+import "./Initializable.sol";
  
-abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
+abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, Initializable   {
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
@@ -13,9 +14,17 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     MetaDataIssuersEvents public METADATA_IE;
     AccessContractGET public BOUNCER;
 
-    constructor (string memory name, string memory symbol) public ERC721_CLEAN(name, symbol) {
+    function initialize() public payable initializer {
+        // ERC721_CLEAN("GET PROTOCOL SMART TICKET FACTORY V3", "getNFT BSC V3");
         BOUNCER = AccessContractGET(0xaC2D9016b846b09f441AbC2756b0895e529971CD);
-        METADATA_IE = MetaDataIssuersEvents(0xF1cD6211CB0E6020eD3F888574f3bA964cf2fCd5);
+    }
+
+    // constructor (string memory name, string memory symbol) public ERC721_CLEAN(name, symbol) {
+    //     BOUNCER = AccessContractGET(0xaC2D9016b846b09f441AbC2756b0895e529971CD);
+    //     METADATA_IE = MetaDataIssuersEvents(0xF1cD6211CB0E6020eD3F888574f3bA964cf2fCd5);
+    // }
+
+    constructor (string memory name, string memory symbol) public ERC721_CLEAN(name, symbol) {
     }
 
     using Counters for Counters.Counter;
@@ -188,7 +197,7 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
 
 
     /** 
-     * @dev returns all metadata of getNFT by nftIndex - returns metadata stored in getNFTs - queries of ticket explorer
+     * @dev returns all metadata of getNFT by nftIndex
      */
     function getNFTByIndex(uint256 nftIndex) public view returns(address _originAddress, bool _scanState, address _ticketIssuerA, address _eventAddress, string memory _metadata) { 
         require(_exists(nftIndex), "GET TX FAILED Func: getNFTByIndex - Query for nonexistent token");
