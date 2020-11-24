@@ -1,14 +1,16 @@
 pragma solidity ^0.6.0;
 
 import "../interfaces/IERCAccessControlGET.sol";
+import "../Initializable.sol";
+
 pragma experimental ABIEncoderV2;
 
-contract getNFTMetaDataIssuersEvents {
+contract getNFTMetaDataIssuersEvents is Initializable {
     bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
     AccessContractGET BOUNCER;
 
-    constructor (address _bouncerAddress) public {
-        BOUNCER = AccessContractGET(_bouncerAddress);
+    function initialize() public payable initializer {
+      BOUNCER = AccessContractGET(0xaC2D9016b846b09f441AbC2756b0895e529971CD);
     }
 
     modifier onlyFactory() {
@@ -21,18 +23,20 @@ contract getNFTMetaDataIssuersEvents {
 
     event newEventRegistered(address indexed eventAddress, string indexed eventName, uint256 indexed _timestamp);
     event newTicketIssuerMetaData(address indexed ticketIssuerAddress, string indexed ticketIssuerName, uint256 indexed _timestamp);
-    event primaryMarketNFTSold(address indexed eventAddress, uint256 indexed nftIndex, uint256 indexed pricePaid);
-    event secondaryMarketNFTSold(address indexed eventAddress, uint256 indexed nftIndex, uint256 indexed pricePaid);
+    event primaryMarketNFTSold(address indexed eventAddress, uint256 indexed nftIndex, uint256 indexed pricePaidP);
+    event secondaryMarketNFTSold(address indexed eventAddress, uint256 indexed nftIndex, uint256 indexed pricePaidS);
 
     struct OrdersPrimary {
         uint256 _nftIndex;
-        uint256 _pricePaid;
+        uint256 _pricePaidP;
+        uint256 _orderTimeP;
     }
 
     struct OrdersSecondary {
         uint256 _nftIndex;
-        uint256 _pricePaid;
-    }    
+        uint256 _pricePaidS;
+        uint256 _orderTimeS;
+    }  
 
     struct TicketIssuerStruct {
         address ticketissuer_address;
@@ -67,20 +71,33 @@ contract getNFTMetaDataIssuersEvents {
   mapping(address => EventStruct) public allEventStructs;
   address[] public eventAddresses;  
   
-  
-  function addNftMetaPrimary(address eventAddress, uint256 nftIndex, uint256 pricePaid) public onlyFactory() {
+  /** 
+  * @dev TODO
+  * @param eventAddress address of event controlling getNFT 
+  * @param nftIndex unique index of getNFT
+  * @param orderTimeP timestamp passed on by ticket issuer of order time of database ticket twin (primary market getNFT)
+  * @param pricePaidP price of primary sale as passed on by ticket issuer
+  */  
+  function addNftMetaPrimary(address eventAddress, uint256 nftIndex, uint256 orderTimeP, uint256 pricePaidP) public onlyFactory() {
       EventStruct storage c = allEventStructs[eventAddress];
       c.amountNFTs++;
-      c.ordersprimary[nftIndex] = OrdersPrimary({_nftIndex: nftIndex, _pricePaid: pricePaid});
-      c.grossRevenuePrimary += pricePaid;
-      emit primaryMarketNFTSold(eventAddress, nftIndex, pricePaid);
+      c.ordersprimary[nftIndex] = OrdersPrimary({_nftIndex: nftIndex, _pricePaidP: pricePaidP, _orderTimeP: orderTimeP});
+      c.grossRevenuePrimary += pricePaidP;
+      emit primaryMarketNFTSold(eventAddress, nftIndex, pricePaidP);
   }
 
-  function addNftMetaSecondary(address eventAddress, uint256 nftIndex, uint256 pricePaid) public onlyFactory() {
+  /** 
+  * @dev TODO
+  * @param eventAddress address of event controlling getNFT 
+  * @param nftIndex unique index of getNFT
+  * @param orderTimeS timestamp passed on by ticket issuer of order time of database ticket twin (secondary market getNFT)
+  * @param pricePaidS price of secondary sale as passed on by ticket issuer
+  */   
+  function addNftMetaSecondary(address eventAddress, uint256 nftIndex, uint256 orderTimeS, uint256 pricePaidS) public onlyFactory() {
       EventStruct storage c = allEventStructs[eventAddress];
-      c.orderssecondary[nftIndex] = OrdersSecondary({_nftIndex: nftIndex, _pricePaid: pricePaid});
-      c.grossRevenueSecondary += pricePaid;
-      emit secondaryMarketNFTSold(eventAddress, nftIndex, pricePaid);
+      c.orderssecondary[nftIndex] = OrdersSecondary({_nftIndex: nftIndex, _pricePaidS: pricePaidS, _orderTimeS: orderTimeS});
+      c.grossRevenueSecondary += pricePaidS;
+      emit secondaryMarketNFTSold(eventAddress, nftIndex, pricePaidS);
   }
 
   function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) onlyFactory() public virtual returns(bool success) { 
@@ -127,24 +144,23 @@ contract getNFTMetaDataIssuersEvents {
     return(
         allEventStructs[eventAddress].event_name, 
         allEventStructs[eventAddress].shop_url,
-
         allEventStructs[eventAddress].start_time,
         allEventStructs[eventAddress].ticketissuer_address,
         allEventStructs[eventAddress].amountNFTs,
         allEventStructs[eventAddress].grossRevenuePrimary);
   }
   
-  function fetchPrimaryOrderNFT(address eventAddress, uint256 nftIndex) public view returns(uint256 _nftIndex, uint256 _pricePaid) {
+  function fetchPrimaryOrderNFT(address eventAddress, uint256 nftIndex) public view returns(uint256 _nftIndex, uint256 _pricePaidP) {
     return(
         allEventStructs[eventAddress].ordersprimary[nftIndex]._nftIndex,
-        allEventStructs[eventAddress].ordersprimary[nftIndex]._pricePaid
+        allEventStructs[eventAddress].ordersprimary[nftIndex]._pricePaidP
         );
   }
 
-  function fetchSecondaryOrderNFT(address eventAddress, uint256 nftIndex) public view returns(uint256 _nftIndex, uint256 _pricePaid) {
+  function fetchSecondaryOrderNFT(address eventAddress, uint256 nftIndex) public view returns(uint256 _nftIndex, uint256 _pricePaidS) {
     return(
         allEventStructs[eventAddress].orderssecondary[nftIndex]._nftIndex,
-        allEventStructs[eventAddress].orderssecondary[nftIndex]._pricePaid
+        allEventStructs[eventAddress].orderssecondary[nftIndex]._pricePaidS
         );
   }
 

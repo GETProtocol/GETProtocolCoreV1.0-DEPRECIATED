@@ -1674,8 +1674,8 @@ interface MetaDataIssuersEvents {
     function newTicketIssuer(address ticketIssuerAddress, string calldata ticketIssuerName, string calldata ticketIssuerUrl) external returns(bool success);
     function getTicketIssuer(address ticketIssuerAddress) external view  returns(address, string memory ticketIssuerName, string memory ticketIssuerUrl);
     function registerEvent(address eventAddress, string calldata eventName, string calldata shopUrl, string calldata latitude, string calldata longitude, uint256 startingTime, address ticketIssuer, string calldata callbackUrl) external returns(bool success);
-    function addNftMetaPrimary(address eventAddress, uint256 nftIndex, uint256 pricePaid) external;
-    function addNftMetaSecondary(address eventAddress, uint256 nftIndex, uint256 pricePaid) external;
+    function addNftMetaPrimary(address eventAddress, uint256 nftIndex, uint256 orderTime, uint256 pricePaid) external;
+    function addNftMetaSecondary(address eventAddress, uint256 nftIndex, uint256 orderTime, uint256 pricePaid) external;
     function getEventDataAll(address eventAddress) external view returns(string memory eventName, string memory shopUrl, uint startTime, string memory ticketIssuerName, address, string memory ticketIssuerUrl);
     function isEvent(address eventAddress) external view returns(bool isIndeed);
     function getEventCount(address ticketIssuerAddress) external view returns(uint eventCount);
@@ -1683,6 +1683,8 @@ interface MetaDataIssuersEvents {
     function getTicketIssuerCount() external view returns (uint ticketIssuerCount);
     function fetchPrimaryOrderNFT(address eventAddress, uint256 nftIndex) external view returns(uint256 _nftIndex, uint256 _pricePaid);
     function fetchSecondaryOrderNFT(address eventAddress, uint256 nftIndex) external view returns(uint256 _nftIndex, uint256 _pricePaid);
+    function getNFTByAddress(address originAddress) external view returns(uint256 nftIndex, bool _scanState, address _ticketIssuerA, address _eventAddress, string memory _metadata);
+    function getNFTByIndex(uint256 nftIndex) external view returns(address _originAddress, bool _scanState, address _ticketIssuerA, address _eventAddress, string memory _metadata);
 }
 
 // File: contracts/interfaces/IERCAccessControlGET.sol
@@ -1694,6 +1696,72 @@ interface AccessContractGET {
     function grantRole(bytes32 role, address account) external returns (bool);
 }
 
+// File: contracts/Initializable.sol
+
+// SPDX-License-Identifier: MIT
+
+// solhint-disable-next-line compiler-version
+pragma solidity >=0.4.24 <0.7.0;
+
+
+/**
+ * @dev This is a base contract to aid in writing upgradeable contracts, or any kind of contract that will be deployed
+ * behind a proxy. Since a proxied contract can't have a constructor, it's common to move constructor logic to an
+ * external initializer function, usually called `initialize`. It then becomes necessary to protect this initializer
+ * function so it can only be called once. The {initializer} modifier provided by this contract will have this effect.
+ * 
+ * TIP: To avoid leaving the proxy in an uninitialized state, the initializer function should be called as early as
+ * possible by providing the encoded function call as the `_data` argument to {UpgradeableProxy-constructor}.
+ * 
+ * CAUTION: When used with inheritance, manual care must be taken to not invoke a parent initializer twice, or to ensure
+ * that all initializers are idempotent. This is not verified automatically as constructors are by Solidity.
+ */
+abstract contract Initializable {
+
+    /**
+     * @dev Indicates that the contract has been initialized.
+     */
+    bool private _initialized;
+
+    /**
+     * @dev Indicates that the contract is in the process of being initialized.
+     */
+    bool private _initializing;
+
+    /**
+     * @dev Modifier to protect an initializer function from being invoked twice.
+     */
+    modifier initializer() {
+        require(_initializing || _isConstructor() || !_initialized, "Initializable: contract is already initialized");
+
+        bool isTopLevelCall = !_initializing;
+        if (isTopLevelCall) {
+            _initializing = true;
+            _initialized = true;
+        }
+
+        _;
+
+        if (isTopLevelCall) {
+            _initializing = false;
+        }
+    }
+
+    /// @dev Returns true if and only if the function is running in the constructor
+    function _isConstructor() private view returns (bool) {
+        // extcodesize checks the size of the code stored in an address, and
+        // address returns the current address. Since the code is still not
+        // deployed when running a constructor, any checks on its code size will
+        // yield zero, making it an effective way to detect if a contract is
+        // under construction or not.
+        address self = address(this);
+        uint256 cs;
+        // solhint-disable-next-line no-inline-assembly
+        assembly { cs := extcodesize(self) }
+        return cs == 0;
+    }
+}
+
 // File: contracts/ERC721_TICKETING_V3.sol
 
 pragma solidity ^0.6.0;
@@ -1701,8 +1769,9 @@ pragma solidity ^0.6.0;
 
 
 
+
  
-abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
+abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, Initializable   {
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
@@ -1710,9 +1779,17 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     MetaDataIssuersEvents public METADATA_IE;
     AccessContractGET public BOUNCER;
 
-    constructor (string memory name, string memory symbol) public ERC721_CLEAN(name, symbol) {
+    function initialize() public payable initializer {
+        // ERC721_CLEAN("GET PROTOCOL SMART TICKET FACTORY V3", "getNFT BSC V3");
         BOUNCER = AccessContractGET(0xaC2D9016b846b09f441AbC2756b0895e529971CD);
-        METADATA_IE = MetaDataIssuersEvents(0xF1cD6211CB0E6020eD3F888574f3bA964cf2fCd5);
+    }
+
+    // constructor (string memory name, string memory symbol) public ERC721_CLEAN(name, symbol) {
+    //     BOUNCER = AccessContractGET(0xaC2D9016b846b09f441AbC2756b0895e529971CD);
+    //     METADATA_IE = MetaDataIssuersEvents(0xF1cD6211CB0E6020eD3F888574f3bA964cf2fCd5);
+    // }
+
+    constructor (string memory name, string memory symbol) public ERC721_CLEAN(name, symbol) {
     }
 
     using Counters for Counters.Counter;
@@ -1749,7 +1826,9 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
         _;
     }
     
-    // Whitelisted Contract Address - A factory mints/issues getNFTs (the contract you are looking at). 
+    /** Whitelisted Contract Address - A factory mints/issues getNFTs (the contract you are looking at). 
+    * @dev after the deploy of a factory contract, the factory contract address needs to 
+    */
     modifier onlyFactory() {
         require(BOUNCER.hasRole(FACTORY_ROLE, msg.sender), "ACCESS DENIED - Restricted to registered getNFT Factory contracts.");
         _;
@@ -1759,8 +1838,9 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     * @notice In the first transaction the ticketMetadata is stored in the metadata of the NFT.
     * @param destinationAddress addres of the to-be owner of the getNFT 
     * @param ticketMetadata string containing the metadata about the ticket the NFT is representing (unstructured, set by ticketIssuer)
+    * @param orderTime timestamp of the moment the ticket-twin was sold in the primary market by ticketIssuer
     */
-    function primaryMint(address destinationAddress, address ticketIssuerAddress, address eventAddress, string memory ticketMetadata) public onlyRelayer() returns (uint256) {
+    function primaryMint(address destinationAddress, address ticketIssuerAddress, address eventAddress, string memory ticketMetadata, uint256 orderTime) public onlyRelayer() returns (uint256) {
 
         // Check if the destinationAddress already owns getNFTs (this would be weird!)
         if (balanceOf(destinationAddress) != 0) {
@@ -1785,7 +1865,7 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
         _setnftScannedBool(nftIndex, false);
 
         // Push Order data primary sale to metadata contract
-        METADATA_IE.addNftMetaPrimary(eventAddress, nftIndex, 50);
+        METADATA_IE.addNftMetaPrimary(eventAddress, nftIndex, orderTime, 50);
         
         // Fetch blocktime as to assist ticket explorer for ordering
         emit txPrimaryMint(destinationAddress, ticketIssuerAddress, nftIndex, block.timestamp);
@@ -1798,9 +1878,10 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
     * @notice This function can only be called by a whitelisted relayer address (onlyRelayer).
     * @notice The nftIndex will be fetched by the contract using ownerOf(originAddress)
     * @param originAddress address of the current owner of the getNFT
-    * @param destinationAddress addres of the to-be owner of the NFT 
+    * @param destinationAddress address of the to-be(future) owner of the getNFT 
+    * @param orderTime timestamp of the moment the ticket-twin was sold in the secondary market by ticketIssuer
     */
-    function secondaryTransfer(address originAddress, address destinationAddress) public onlyRelayer() {
+    function secondaryTransfer(address originAddress, address destinationAddress, uint256 orderTime) public onlyRelayer() {
 
         // In order to transfer an getNFT, the origin needs to own an NFT
         if (balanceOf(originAddress) == 0) {
@@ -1811,7 +1892,7 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
         uint256 nftIndex;
         nftIndex = tokenOfOwnerByIndex(originAddress, 0);
 
-        // /// Verify if originAddress is owner of nftIndex
+        // Verify if originAddress is owner of nftIndex
         require(ownerOf(nftIndex) == originAddress, "GET TX FAILED Func: secondaryTransfer - transfer of nftIndexx that is not owned by owner");
         
         // Check if the destinationAddress already owns getNFTs (this would be weird!)
@@ -1826,7 +1907,7 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
         // Push Order data secondary sale to metadata contract
         address _eventAddress;
         _eventAddress = _eventAddresses[nftIndex];
-        METADATA_IE.addNftMetaSecondary(_eventAddress, nftIndex, 60);
+        METADATA_IE.addNftMetaSecondary(_eventAddress, nftIndex, orderTime, 60);
 
         /// Emit event of secondary transfer
         emit txSecondary(originAddress, destinationAddress, getAddressOfTicketIssuer(nftIndex), nftIndex, block.timestamp);
@@ -1864,6 +1945,11 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
         emit txScan(originAddress, destinationAddress, nftIndex, block.timestamp);
     }
 
+
+    /** 
+     * @dev returns metadata fields getNFT by orginAddress
+     * @notice if an address owned an getNFT in the past, but not anymore, this will return empty
+     */
     function getNFTByAddress(address originAddress) public view returns(uint256 nftIndex, bool _scanState, address _ticketIssuerA, address _eventAddress, string memory _metadata) { 
         require(balanceOf(originAddress) != 0, "GET TX FAILED Func: getNFTByAddress - URI query for nonexistent token.");
         return(
@@ -1874,6 +1960,10 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
             _tokenURIs[nftIndex]);
     }
 
+
+    /** 
+     * @dev returns all metadata of getNFT by nftIndex
+     */
     function getNFTByIndex(uint256 nftIndex) public view returns(address _originAddress, bool _scanState, address _ticketIssuerA, address _eventAddress, string memory _metadata) { 
         require(_exists(nftIndex), "GET TX FAILED Func: getNFTByIndex - Query for nonexistent token");
         return(
@@ -1891,6 +1981,10 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
         METADATA_IE = MetaDataIssuersEvents(_new_metadata_TE);
     }
 
+
+    /** 
+     * @dev updates bouncer contract used to validate all incoming txs/calls 
+     */
     function updateBouncerContract(address _new_bouncer_address) public onlyAdmin() {
         BOUNCER = AccessContractGET(_new_bouncer_address);
     }
@@ -1947,7 +2041,7 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN  {
 
     /**
     * @dev Returns the Eventaddress of the getNFT
-     */
+    */
     function getEventAddress(uint256 nftIndex) public view returns (address) {
         require(_exists(nftIndex), "GET TX FAILED Func: getEventAddress : Nonexistent nftIndex");
         return _eventAddresses[nftIndex];
@@ -1971,8 +2065,4 @@ pragma solidity ^0.6.0;
 
 contract GET_NFT_V3 is ERC721_TICKETING_V3 {
     constructor() public ERC721_TICKETING_V3("GET PROTOCOL SMART TICKET FACTORY V3", "getNFT BSC V3") { }
-    address public deployerAddress = msg.sender;
-    uint public deployerTime = now;
-
-    
 }

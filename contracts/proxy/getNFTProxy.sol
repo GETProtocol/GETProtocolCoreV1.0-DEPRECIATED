@@ -301,9 +301,14 @@ contract UpgradeableProxy is Proxy {
      * If `_data` is nonempty, it's used as data in a delegate call to `_logic`. This will typically be an encoded
      * function call, and allows initializating the storage of the proxy like a Solidity constructor.
      */
-    constructor(address _logic) public payable {
+    constructor(address _logic, bytes memory _data) public payable {
         assert(_IMPLEMENTATION_SLOT == bytes32(uint256(keccak256("eip1967.proxy.implementation")) - 1));
         _setImplementation(_logic);
+        if(_data.length > 0) {
+            // solhint-disable-next-line avoid-low-level-calls
+            (bool success,) = _logic.delegatecall(_data);
+            require(success);
+        }
     }
 
     /**
@@ -387,9 +392,9 @@ contract getNFTProxy is UpgradeableProxy {
      * @dev Initializes an upgradeable proxy managed by `_admin`, backed by the implementation at `_logic`, and
      * optionally initialized with `_data` as explained in {UpgradeableProxy-constructor}.
      */
-    constructor() public payable UpgradeableProxy(0xAfaF2707490c72fd8558FaFcD4a6c83cAC1D03c7) {
+    constructor(address _logic, address _admin, bytes memory _data) public payable UpgradeableProxy(_logic, _data) {
         assert(_ADMIN_SLOT == bytes32(uint256(keccak256("eip1967.proxy.admin")) - 1));
-        _setAdmin(0x0D5BF3570ddf4c5b72aFc014F4b728B67e44Ea7f);
+        _setAdmin(_admin);
     }
 
     /**
