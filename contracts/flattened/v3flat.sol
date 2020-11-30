@@ -1666,27 +1666,6 @@ library Counters {
     }
 }
 
-// File: contracts/interfaces/IERCMetaDataIssuersEvents.sol
-
-pragma solidity ^0.6.0;
-
-interface MetaDataIssuersEvents {
-    function newTicketIssuer(address ticketIssuerAddress, string calldata ticketIssuerName, string calldata ticketIssuerUrl) external returns(bool success);
-    function getTicketIssuer(address ticketIssuerAddress) external view  returns(address, string memory ticketIssuerName, string memory ticketIssuerUrl);
-    function registerEvent(address eventAddress, string calldata eventName, string calldata shopUrl, string calldata latitude, string calldata longitude, uint256 startingTime, address ticketIssuer, string calldata callbackUrl) external returns(bool success);
-    function addNftMetaPrimary(address eventAddress, uint256 nftIndex, uint256 orderTime, uint256 pricePaid) external;
-    function addNftMetaSecondary(address eventAddress, uint256 nftIndex, uint256 orderTime, uint256 pricePaid) external;
-    function getEventDataAll(address eventAddress) external view returns(string memory eventName, string memory shopUrl, uint startTime, string memory ticketIssuerName, address, string memory ticketIssuerUrl);
-    function isEvent(address eventAddress) external view returns(bool isIndeed);
-    function getEventCount(address ticketIssuerAddress) external view returns(uint eventCount);
-    function isTicketIssuer(address ticketIssuerAddress) external view returns(bool isIndeed);
-    function getTicketIssuerCount() external view returns (uint ticketIssuerCount);
-    function fetchPrimaryOrderNFT(address eventAddress, uint256 nftIndex) external view returns(uint256 _nftIndex, uint256 _pricePaid);
-    function fetchSecondaryOrderNFT(address eventAddress, uint256 nftIndex) external view returns(uint256 _nftIndex, uint256 _pricePaid);
-    function getNFTByAddress(address originAddress) external view returns(uint256 nftIndex, bool _scanState, address _ticketIssuerA, address _eventAddress, string memory _metadata);
-    function getNFTByIndex(uint256 nftIndex) external view returns(address _originAddress, bool _scanState, address _ticketIssuerA, address _eventAddress, string memory _metadata);
-}
-
 // File: contracts/interfaces/IERCAccessControlGET.sol
 
 pragma solidity ^0.6.0;
@@ -1762,51 +1741,17 @@ abstract contract Initializable {
     }
 }
 
-// File: contracts/ERC721_TICKETING_V3.sol
+// File: contracts/bouncerLogic.sol
 
 pragma solidity ^0.6.0;
 
 
-
-
-
- 
-abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, Initializable   {
+contract bouncerLogic {
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
     bytes32 public constant DEFAULT_ADMIN_ROLE = 0x00;
-    MetaDataIssuersEvents public METADATA_IE;
     AccessContractGET public BOUNCER;
-
-    function initialize() public payable initializer {
-        // ERC721_CLEAN("GET PROTOCOL SMART TICKET FACTORY V3", "getNFT BSC V3");
-        BOUNCER = AccessContractGET(0xaC2D9016b846b09f441AbC2756b0895e529971CD);
-    }
-
-    // constructor (string memory name, string memory symbol) public ERC721_CLEAN(name, symbol) {
-    //     BOUNCER = AccessContractGET(0xaC2D9016b846b09f441AbC2756b0895e529971CD);
-    //     METADATA_IE = MetaDataIssuersEvents(0xF1cD6211CB0E6020eD3F888574f3bA964cf2fCd5);
-    // }
-
-    constructor (string memory name, string memory symbol) public ERC721_CLEAN(name, symbol) {
-    }
-
-    using Counters for Counters.Counter;
-    Counters.Counter private _nftIndexs;
-
-    mapping(uint256 => bool) public _nftScanned; 
-    mapping (uint256 => address) private _ticketIssuerAddresses;  
-    mapping (uint256 => address) private _eventAddresses;
-
-    event txPrimaryMint(address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
-    event txSecondary(address originAddress, address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
-    event txScan(address originAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
-    event doubleScan(address indexed originAddress, uint256 indexed nftIndex, uint indexed _timestamp);
-    event doubleNFTAlert(address indexed destinationAddress, uint indexed _timestamp);
-    event noCoinerAlert(address indexed originAddress, uint indexed _timestamp);
-    event illegalTransfer(address indexed originAddress,address indexed destinationAddress,uint256 indexed nftIndex, uint _timestamp);
-    event illegalScan(address indexed originAddress, uint indexed _timestamp);
 
     // Whtielisted EOA account with "ADMIN" role
     modifier onlyAdmin() {
@@ -1825,7 +1770,7 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, Initializable   {
         require(BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "ACCESS DENIED - Restricted to minters of GET Protocol.");
         _;
     }
-    
+
     /** Whitelisted Contract Address - A factory mints/issues getNFTs (the contract you are looking at). 
     * @dev after the deploy of a factory contract, the factory contract address needs to 
     */
@@ -1833,6 +1778,223 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, Initializable   {
         require(BOUNCER.hasRole(FACTORY_ROLE, msg.sender), "ACCESS DENIED - Restricted to registered getNFT Factory contracts.");
         _;
     }
+
+}
+
+// File: contracts/metadataLogic.sol
+
+pragma solidity ^0.6.0;
+
+pragma experimental ABIEncoderV2;
+
+contract metadataLogic {
+
+    // Mappings for the ticketIsuer data storage
+    mapping(address => TicketIssuerStruct) public allTicketIssuerStructs;
+    address[] public ticketIssuerAddresses;
+
+    // Mappings for the event data storage
+    mapping(address => EventStruct) public allEventStructs;
+    address[] public eventAddresses;  
+
+    event newEventRegistered(address indexed eventAddress, string indexed eventName, uint256 indexed _timestamp);
+    event newTicketIssuerMetaData(address indexed ticketIssuerAddress, string indexed ticketIssuerName, uint256 indexed _timestamp);
+    event primaryMarketNFTSold(address indexed eventAddress, uint256 indexed nftIndex, uint256 indexed pricePaidP);
+    event secondaryMarketNFTSold(address indexed eventAddress, uint256 indexed nftIndex, uint256 indexed pricePaidS);
+
+    struct OrdersPrimary {
+        uint256 _nftIndex;
+        uint256 _pricePaidP;
+        uint256 _orderTimeP;
+    }
+
+    struct OrdersSecondary {
+        uint256 _nftIndex;
+        uint256 _pricePaidS;
+        uint256 _orderTimeS;
+    }  
+
+    struct TicketIssuerStruct {
+        address ticketissuer_address;
+        string ticketissuer_name;
+        string ticketissuer_url;
+        uint256 listPointerT;
+    }
+
+    struct EventStruct {
+        address event_address;
+        string event_name;
+        string shop_url;
+        string latitude;
+        string longitude;
+        uint256 start_time;
+        address ticketissuer_address;
+        uint256 amountNFTs;
+        uint256 grossRevenuePrimary;
+        uint256 grossRevenueSecondary;
+        string callback_url;
+        mapping (uint256 => OrdersPrimary) ordersprimary;
+        mapping (uint256 => OrdersSecondary) orderssecondary;
+        uint256 listPointerE;
+    }
+  
+  /** 
+  * @dev TODO
+  * @param eventAddress address of event controlling getNFT 
+  * @param nftIndex unique index of getNFT
+  * @param orderTimeP timestamp passed on by ticket issuer of order time of database ticket twin (primary market getNFT)
+  * @param pricePaidP price of primary sale as passed on by ticket issuer
+  */  
+  function addNftMetaPrimary(address eventAddress, uint256 nftIndex, uint256 orderTimeP, uint256 pricePaidP) public virtual returns(bool success){
+      EventStruct storage c = allEventStructs[eventAddress];
+      c.amountNFTs++;
+      c.ordersprimary[nftIndex] = OrdersPrimary({_nftIndex: nftIndex, _pricePaidP: pricePaidP, _orderTimeP: orderTimeP});
+      c.grossRevenuePrimary += pricePaidP;
+      emit primaryMarketNFTSold(eventAddress, nftIndex, pricePaidP);
+      return true;
+  }
+
+  /** 
+  * @dev TODO
+  * @param eventAddress address of event controlling getNFT 
+  * @param nftIndex unique index of getNFT
+  * @param orderTimeS timestamp passed on by ticket issuer of order time of database ticket twin (secondary market getNFT)
+  * @param pricePaidS price of secondary sale as passed on by ticket issuer
+  */   
+  function addNftMetaSecondary(address eventAddress, uint256 nftIndex, uint256 orderTimeS, uint256 pricePaidS) public virtual returns(bool success) {
+      EventStruct storage c = allEventStructs[eventAddress];
+      c.orderssecondary[nftIndex] = OrdersSecondary({_nftIndex: nftIndex, _pricePaidS: pricePaidS, _orderTimeS: orderTimeS});
+      c.grossRevenueSecondary += pricePaidS;
+      emit secondaryMarketNFTSold(eventAddress, nftIndex, pricePaidS);
+      return true;
+  }
+
+  function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) public virtual returns(bool success) { 
+
+    allTicketIssuerStructs[ticketIssuerAddress].ticketissuer_address = ticketIssuerAddress;
+    allTicketIssuerStructs[ticketIssuerAddress].ticketissuer_name = ticketIssuerName;
+    allTicketIssuerStructs[ticketIssuerAddress].ticketissuer_url = ticketIssuerUrl;
+
+    emit newTicketIssuerMetaData(ticketIssuerAddress, ticketIssuerName, block.timestamp);
+    
+    ticketIssuerAddresses.push(ticketIssuerAddress);
+    allTicketIssuerStructs[ticketIssuerAddress].listPointerT = ticketIssuerAddresses.length - 1;
+    return true;
+  }
+
+  function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory latitude, string memory longitude, uint256 startingTime, address ticketIssuer, string memory callbackUrl) public virtual returns(bool success) {
+
+    allEventStructs[eventAddress].event_name = eventName;
+    allEventStructs[eventAddress].shop_url = shopUrl;
+    allEventStructs[eventAddress].latitude = latitude;
+    allEventStructs[eventAddress].longitude = longitude;
+
+    allEventStructs[eventAddress].start_time = startingTime;
+    allEventStructs[eventAddress].ticketissuer_address = ticketIssuer;
+
+    allEventStructs[eventAddress].callback_url = callbackUrl;
+    eventAddresses.push(eventAddress);
+    allEventStructs[eventAddress].listPointerE = eventAddresses.length -1;
+
+    emit newEventRegistered(eventAddress, eventName, block.timestamp);
+
+    return true;
+  }
+
+  function getTicketIssuer(address ticketIssuerAddress) public virtual view returns(address, string memory ticketIssuerName, string memory ticketIssuerUrl) {
+    return(
+      allTicketIssuerStructs[ticketIssuerAddress].ticketissuer_address,
+      allTicketIssuerStructs[ticketIssuerAddress].ticketissuer_name,
+      allTicketIssuerStructs[ticketIssuerAddress].ticketissuer_url);
+  }
+ 
+  function getEventDataAll(address eventAddress) public virtual view returns(string memory eventName, string memory shopUrl, uint256 startTime, address, uint256 amountNFTs, uint256 grossRevenuePrimary) {
+    return(
+        allEventStructs[eventAddress].event_name, 
+        allEventStructs[eventAddress].shop_url,
+        allEventStructs[eventAddress].start_time,
+        allEventStructs[eventAddress].ticketissuer_address,
+        allEventStructs[eventAddress].amountNFTs,
+        allEventStructs[eventAddress].grossRevenuePrimary);
+  }
+  
+  function fetchPrimaryOrderNFT(address eventAddress, uint256 nftIndex) public view returns(uint256 _nftIndex, uint256 _pricePaidP) {
+    return(
+        allEventStructs[eventAddress].ordersprimary[nftIndex]._nftIndex,
+        allEventStructs[eventAddress].ordersprimary[nftIndex]._pricePaidP
+        );
+  }
+
+  function fetchSecondaryOrderNFT(address eventAddress, uint256 nftIndex) public view returns(uint256 _nftIndex, uint256 _pricePaidS) {
+    return(
+        allEventStructs[eventAddress].orderssecondary[nftIndex]._nftIndex,
+        allEventStructs[eventAddress].orderssecondary[nftIndex]._pricePaidS
+        );
+  }
+
+  function isEvent(address eventAddress) public view returns(bool isIndeed) {
+    if(eventAddresses.length == 0) return false;
+    return (eventAddresses[allEventStructs[eventAddress].listPointerE] == eventAddress);
+  }
+
+  function getEventCount() public view returns(uint256 eventCount) {
+    return eventAddresses.length;
+  }
+
+    /**
+    * @dev TD
+    */
+  function isTicketIssuer(address ticketIssuerAddress) public view returns(bool isIndeed) {
+    if(ticketIssuerAddresses.length == 0) return false;
+    return (ticketIssuerAddresses[allTicketIssuerStructs[ticketIssuerAddress].listPointerT] == ticketIssuerAddress);
+  }
+
+    /**
+    * @dev TD
+    */
+  function getTicketIssuerCount() public view returns(uint256 ticketIssuerCount) {
+    return ticketIssuerAddresses.length;
+  }
+}
+
+// File: contracts/ERC721_TICKETING_V3.sol
+
+pragma solidity ^0.6.0;
+
+
+
+
+
+
+ 
+abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, metadataLogic, bouncerLogic, Initializable {
+    function initializeMainFactory() public payable initializer {
+        _name = "GET PROTOCOL SMART TICKET FACTORY V3";
+        _symbol = "getNFT BSC V3";
+        _baseURI = "https://get-protocol.io/";
+        BOUNCER = AccessContractGET(0xaC2D9016b846b09f441AbC2756b0895e529971CD);
+    }
+
+    constructor () public ERC721_CLEAN("GET PROTOCOL SMART TICKET FACTORY V3", "getNFT BSC V3") {
+        BOUNCER = AccessContractGET(0xaC2D9016b846b09f441AbC2756b0895e529971CD); 
+    }
+
+    using Counters for Counters.Counter;
+    Counters.Counter private _nftIndexs;
+
+    mapping(uint256 => bool) public _nftScanned; 
+    mapping (uint256 => address) private _ticketIssuerAddresses;  
+    mapping (uint256 => address) private _eventAddresses;
+
+
+    event txPrimaryMint(address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
+    event txSecondary(address originAddress, address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
+    event txScan(address originAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
+    event doubleScan(address indexed originAddress, uint256 indexed nftIndex, uint indexed _timestamp);
+    event doubleNFTAlert(address indexed destinationAddress, uint indexed _timestamp);
+    event noCoinerAlert(address indexed originAddress, uint indexed _timestamp);
+    event illegalTransfer(address indexed originAddress,address indexed destinationAddress,uint256 indexed nftIndex, uint _timestamp);
+    event illegalScan(address indexed originAddress, uint indexed _timestamp);
 
     /**  onlyRelayer - caller needs to be whitelisted relayer
     * @notice In the first transaction the ticketMetadata is stored in the metadata of the NFT.
@@ -1865,14 +2027,13 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, Initializable   {
         _setnftScannedBool(nftIndex, false);
 
         // Push Order data primary sale to metadata contract
-        METADATA_IE.addNftMetaPrimary(eventAddress, nftIndex, orderTime, 50);
+        addNftMetaPrimary(eventAddress, nftIndex, orderTime, 50);
         
         // Fetch blocktime as to assist ticket explorer for ordering
         emit txPrimaryMint(destinationAddress, ticketIssuerAddress, nftIndex, block.timestamp);
         
         return nftIndex;
     }
-
 
     /** 
     * @notice This function can only be called by a whitelisted relayer address (onlyRelayer).
@@ -1907,7 +2068,7 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, Initializable   {
         // Push Order data secondary sale to metadata contract
         address _eventAddress;
         _eventAddress = _eventAddresses[nftIndex];
-        METADATA_IE.addNftMetaSecondary(_eventAddress, nftIndex, orderTime, 60);
+        addNftMetaSecondary(_eventAddress, nftIndex, orderTime, 60);
 
         /// Emit event of secondary transfer
         emit txSecondary(originAddress, destinationAddress, getAddressOfTicketIssuer(nftIndex), nftIndex, block.timestamp);
@@ -1975,14 +2136,6 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, Initializable   {
     }
 
     /** 
-     * @dev Set event_metadata_TE_address for NFT Factory contract (used to store metadata of events and ticketIssuer - TE)
-     */ 
-    function updategetNFTMetaDataIssuersEvents(address _new_metadata_TE) public onlyAdmin() {
-        METADATA_IE = MetaDataIssuersEvents(_new_metadata_TE);
-    }
-
-
-    /** 
      * @dev updates bouncer contract used to validate all incoming txs/calls 
      */
     function updateBouncerContract(address _new_bouncer_address) public onlyAdmin() {
@@ -1993,24 +2146,24 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, Initializable   {
      * @dev Register address data of new ticketIssuer
      * @notice Data will be publically available for the getNFT ticket explorer. 
      */ 
-    function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) public onlyRelayer() returns(bool success) {
-        return METADATA_IE.newTicketIssuer(ticketIssuerAddress, ticketIssuerName, ticketIssuerUrl);
+    function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) public override onlyRelayer() returns(bool success) {
+        return super.newTicketIssuer(ticketIssuerAddress, ticketIssuerName, ticketIssuerUrl);
     }
 
     /** 
      * @dev Register address data of new event
      * @notice Data will be publically available for the getNFT ticket explorer. 
      */ 
-    function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory latitude, string memory longitude, uint256 startingTime, address ticketIssuer, string memory callbackUrl) public onlyRelayer() returns(bool success) {
-        return METADATA_IE.registerEvent(eventAddress, eventName, shopUrl, latitude, longitude, startingTime, ticketIssuer, callbackUrl);
+    function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory latitude, string memory longitude, uint256 startingTime, address ticketIssuer, string memory callbackUrl) public override onlyRelayer() returns(bool success) {
+        return super.registerEvent(eventAddress, eventName, shopUrl, latitude, longitude, startingTime, ticketIssuer, callbackUrl);
     }
 
-    /** 
-     * @dev Register address data of new ticketIssuer
-     * @notice Data will be publically available for the getNFT ticket explorer. 
-     */ 
-    function getEventDataAll(address eventAddress) public view returns(string memory eventName, string memory shopUrl, uint startTime, string memory ticketIssuerName, address, string memory ticketIssuerUrl) {
-        return METADATA_IE.getEventDataAll(eventAddress);
+    function addNftMetaPrimary(address eventAddress, uint256 nftIndex, uint256 orderTimeP, uint256 pricePaidP) public override onlyRelayer() returns(bool success) {
+        return super.addNftMetaPrimary(eventAddress, nftIndex, orderTimeP, pricePaidP);
+    }
+
+    function addNftMetaSecondary(address eventAddress, uint256 nftIndex, uint256 orderTimeS, uint256 pricePaidS) public override onlyRelayer() returns(bool success) {
+        return super.addNftMetaSecondary(eventAddress, nftIndex, orderTimeS, pricePaidS);
     }
 
     /**
@@ -2064,5 +2217,5 @@ pragma solidity ^0.6.0;
 
 
 contract GET_NFT_V3 is ERC721_TICKETING_V3 {
-    constructor() public ERC721_TICKETING_V3("GET PROTOCOL SMART TICKET FACTORY V3", "getNFT BSC V3") { }
+    constructor() public ERC721_TICKETING_V3() { }
 }

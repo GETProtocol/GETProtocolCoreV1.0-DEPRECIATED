@@ -1,22 +1,26 @@
 pragma solidity ^0.6.0;
 
-import "../interfaces/IERCAccessControlGET.sol";
-import "../Initializable.sol";
+// import "../interfaces/IERCAccessControlGET.sol";
+// import "../Initializable.sol";
 
 pragma experimental ABIEncoderV2;
 
-contract getNFTMetaDataIssuersEvents is Initializable {
-    bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
-    AccessContractGET BOUNCER;
+contract getNFTMetaDataIssuersEvents {
+    // bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
+    // AccessContractGET public BOUNCER;
 
-    function initialize() public payable initializer {
-      BOUNCER = AccessContractGET(0xaC2D9016b846b09f441AbC2756b0895e529971CD);
-    }
+    // function initializeMetadata(address addressBouncer) public payable initializer {
+    //   BOUNCER = AccessContractGET(addressBouncer);
+    // }
 
-    modifier onlyFactory() {
-        require(BOUNCER.hasRole(FACTORY_ROLE, msg.sender), "ACCESS DENIED - Restricted to GET Factory Contracts.");
-        _;
-    } 
+    // constructor() public {
+    //     BOUNCER = AccessContractGET(0xaC2D9016b846b09f441AbC2756b0895e529971CD);
+    // }
+
+    // modifier onlyFactory() {
+    //     require(BOUNCER.hasRole(FACTORY_ROLE, msg.sender), "ACCESS DENIED - Restricted to GET Factory Contracts.");
+    //     _;
+    // } 
 
     address public deployeraddress = msg.sender;
     uint256 public deployertime = now;
@@ -63,13 +67,13 @@ contract getNFTMetaDataIssuersEvents is Initializable {
         uint256 listPointerE;
     }
 
-  // Mappings for the ticketIsuer data storage
-  mapping(address => TicketIssuerStruct) public allTicketIssuerStructs;
-  address[] public ticketIssuerAddresses;
+  // // Mappings for the ticketIsuer data storage
+  // mapping(address => TicketIssuerStruct) public allTicketIssuerStructs;
+  // address[] public ticketIssuerAddresses;
 
-  // Mappings for the event data storage
-  mapping(address => EventStruct) public allEventStructs;
-  address[] public eventAddresses;  
+  // // Mappings for the event data storage
+  // mapping(address => EventStruct) public allEventStructs;
+  // address[] public eventAddresses;  
   
   /** 
   * @dev TODO
@@ -78,7 +82,7 @@ contract getNFTMetaDataIssuersEvents is Initializable {
   * @param orderTimeP timestamp passed on by ticket issuer of order time of database ticket twin (primary market getNFT)
   * @param pricePaidP price of primary sale as passed on by ticket issuer
   */  
-  function addNftMetaPrimary(address eventAddress, uint256 nftIndex, uint256 orderTimeP, uint256 pricePaidP) public onlyFactory() {
+  function addNftMetaPrimary(address eventAddress, uint256 nftIndex, uint256 orderTimeP, uint256 pricePaidP) public onlyRelayer() {
       EventStruct storage c = allEventStructs[eventAddress];
       c.amountNFTs++;
       c.ordersprimary[nftIndex] = OrdersPrimary({_nftIndex: nftIndex, _pricePaidP: pricePaidP, _orderTimeP: orderTimeP});
@@ -93,14 +97,14 @@ contract getNFTMetaDataIssuersEvents is Initializable {
   * @param orderTimeS timestamp passed on by ticket issuer of order time of database ticket twin (secondary market getNFT)
   * @param pricePaidS price of secondary sale as passed on by ticket issuer
   */   
-  function addNftMetaSecondary(address eventAddress, uint256 nftIndex, uint256 orderTimeS, uint256 pricePaidS) public onlyFactory() {
+  function addNftMetaSecondary(address eventAddress, uint256 nftIndex, uint256 orderTimeS, uint256 pricePaidS) public onlyRelayer() {
       EventStruct storage c = allEventStructs[eventAddress];
       c.orderssecondary[nftIndex] = OrdersSecondary({_nftIndex: nftIndex, _pricePaidS: pricePaidS, _orderTimeS: orderTimeS});
       c.grossRevenueSecondary += pricePaidS;
       emit secondaryMarketNFTSold(eventAddress, nftIndex, pricePaidS);
   }
 
-  function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) onlyFactory() public virtual returns(bool success) { 
+  function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) public onlyRelayer() virtual returns(bool success) { 
 
     allTicketIssuerStructs[ticketIssuerAddress].ticketissuer_address = ticketIssuerAddress;
     allTicketIssuerStructs[ticketIssuerAddress].ticketissuer_name = ticketIssuerName;
@@ -120,7 +124,7 @@ contract getNFTMetaDataIssuersEvents is Initializable {
       allTicketIssuerStructs[ticketIssuerAddress].ticketissuer_url);
   }
 
-  function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory latitude, string memory longitude, uint256 startingTime, address ticketIssuer, string memory callbackUrl) onlyFactory() public virtual returns(bool success) {
+  function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory latitude, string memory longitude, uint256 startingTime, address ticketIssuer, string memory callbackUrl) public onlyRelayer() virtual returns(bool success) {
 
     allEventStructs[eventAddress].event_name = eventName;
     allEventStructs[eventAddress].shop_url = shopUrl;
