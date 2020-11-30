@@ -2,29 +2,21 @@ pragma solidity ^0.6.0;
 
 import "./ERC721_CLEAN.sol";
 import "./Counters.sol";
-import "./interfaces/IERCMetaDataIssuersEvents.sol";
 import "./interfaces/IERCAccessControlGET.sol";
 import "./Initializable.sol";
+import "./bouncerLogic.sol";
+import "./metadataLogic.sol";
  
-abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, Initializable   {
-    bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
-    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-    bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
-    bytes32 public constant DEFAULT_ADMIN_ROLE = 0x00;
-    MetaDataIssuersEvents public METADATA_IE;
-    AccessContractGET public BOUNCER;
-
-    function initialize() public payable initializer {
-        // ERC721_CLEAN("GET PROTOCOL SMART TICKET FACTORY V3", "getNFT BSC V3");
+abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, metadataLogic, bouncerLogic, Initializable {
+    function initializeMainFactory() public payable initializer {
+        _name = "GET PROTOCOL SMART TICKET FACTORY V3";
+        _symbol = "getNFT BSC V3";
+        _baseURI = "https://get-protocol.io/";
         BOUNCER = AccessContractGET(0xaC2D9016b846b09f441AbC2756b0895e529971CD);
     }
 
-    // constructor (string memory name, string memory symbol) public ERC721_CLEAN(name, symbol) {
-    //     BOUNCER = AccessContractGET(0xaC2D9016b846b09f441AbC2756b0895e529971CD);
-    //     METADATA_IE = MetaDataIssuersEvents(0xF1cD6211CB0E6020eD3F888574f3bA964cf2fCd5);
-    // }
-
-    constructor (string memory name, string memory symbol) public ERC721_CLEAN(name, symbol) {
+    constructor () public ERC721_CLEAN("GET PROTOCOL SMART TICKET FACTORY V3", "getNFT BSC V3") {
+        BOUNCER = AccessContractGET(0xaC2D9016b846b09f441AbC2756b0895e529971CD); 
     }
 
     using Counters for Counters.Counter;
@@ -34,6 +26,7 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, Initializable   {
     mapping (uint256 => address) private _ticketIssuerAddresses;  
     mapping (uint256 => address) private _eventAddresses;
 
+
     event txPrimaryMint(address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
     event txSecondary(address originAddress, address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
     event txScan(address originAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
@@ -42,32 +35,6 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, Initializable   {
     event noCoinerAlert(address indexed originAddress, uint indexed _timestamp);
     event illegalTransfer(address indexed originAddress,address indexed destinationAddress,uint256 indexed nftIndex, uint _timestamp);
     event illegalScan(address indexed originAddress, uint indexed _timestamp);
-
-    // Whtielisted EOA account with "ADMIN" role
-    modifier onlyAdmin() {
-        require(BOUNCER.hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "ACCESS DENIED - Restricted to admins of GET Protocol.");
-        _;
-    }
-
-    // Whtielisted EOA account with "RELAYER" role
-    modifier onlyRelayer() {
-        require(BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "ACCESS DENIED - Restricted to relayers of GET Protocol.");
-        _;
-    }
-
-    // Whtielisted EOA account with "MINTER" role
-    modifier onlyMinter() {
-        require(BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "ACCESS DENIED - Restricted to minters of GET Protocol.");
-        _;
-    }
-    
-    /** Whitelisted Contract Address - A factory mints/issues getNFTs (the contract you are looking at). 
-    * @dev after the deploy of a factory contract, the factory contract address needs to 
-    */
-    modifier onlyFactory() {
-        require(BOUNCER.hasRole(FACTORY_ROLE, msg.sender), "ACCESS DENIED - Restricted to registered getNFT Factory contracts.");
-        _;
-    }
 
     /**  onlyRelayer - caller needs to be whitelisted relayer
     * @notice In the first transaction the ticketMetadata is stored in the metadata of the NFT.
@@ -100,14 +67,13 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, Initializable   {
         _setnftScannedBool(nftIndex, false);
 
         // Push Order data primary sale to metadata contract
-        METADATA_IE.addNftMetaPrimary(eventAddress, nftIndex, orderTime, 50);
+        addNftMetaPrimary(eventAddress, nftIndex, orderTime, 50);
         
         // Fetch blocktime as to assist ticket explorer for ordering
         emit txPrimaryMint(destinationAddress, ticketIssuerAddress, nftIndex, block.timestamp);
         
         return nftIndex;
     }
-
 
     /** 
     * @notice This function can only be called by a whitelisted relayer address (onlyRelayer).
@@ -142,7 +108,7 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, Initializable   {
         // Push Order data secondary sale to metadata contract
         address _eventAddress;
         _eventAddress = _eventAddresses[nftIndex];
-        METADATA_IE.addNftMetaSecondary(_eventAddress, nftIndex, orderTime, 60);
+        addNftMetaSecondary(_eventAddress, nftIndex, orderTime, 60);
 
         /// Emit event of secondary transfer
         emit txSecondary(originAddress, destinationAddress, getAddressOfTicketIssuer(nftIndex), nftIndex, block.timestamp);
@@ -210,14 +176,6 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, Initializable   {
     }
 
     /** 
-     * @dev Set event_metadata_TE_address for NFT Factory contract (used to store metadata of events and ticketIssuer - TE)
-     */ 
-    function updategetNFTMetaDataIssuersEvents(address _new_metadata_TE) public onlyAdmin() {
-        METADATA_IE = MetaDataIssuersEvents(_new_metadata_TE);
-    }
-
-
-    /** 
      * @dev updates bouncer contract used to validate all incoming txs/calls 
      */
     function updateBouncerContract(address _new_bouncer_address) public onlyAdmin() {
@@ -228,24 +186,24 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, Initializable   {
      * @dev Register address data of new ticketIssuer
      * @notice Data will be publically available for the getNFT ticket explorer. 
      */ 
-    function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) public onlyRelayer() returns(bool success) {
-        return METADATA_IE.newTicketIssuer(ticketIssuerAddress, ticketIssuerName, ticketIssuerUrl);
+    function newTicketIssuer(address ticketIssuerAddress, string memory ticketIssuerName, string memory ticketIssuerUrl) public override onlyRelayer() returns(bool success) {
+        return super.newTicketIssuer(ticketIssuerAddress, ticketIssuerName, ticketIssuerUrl);
     }
 
     /** 
      * @dev Register address data of new event
      * @notice Data will be publically available for the getNFT ticket explorer. 
      */ 
-    function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory latitude, string memory longitude, uint256 startingTime, address ticketIssuer, string memory callbackUrl) public onlyRelayer() returns(bool success) {
-        return METADATA_IE.registerEvent(eventAddress, eventName, shopUrl, latitude, longitude, startingTime, ticketIssuer, callbackUrl);
+    function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory latitude, string memory longitude, uint256 startingTime, address ticketIssuer, string memory callbackUrl) public override onlyRelayer() returns(bool success) {
+        return super.registerEvent(eventAddress, eventName, shopUrl, latitude, longitude, startingTime, ticketIssuer, callbackUrl);
     }
 
-    /** 
-     * @dev Register address data of new ticketIssuer
-     * @notice Data will be publically available for the getNFT ticket explorer. 
-     */ 
-    function getEventDataAll(address eventAddress) public view returns(string memory eventName, string memory shopUrl, uint startTime, string memory ticketIssuerName, address, string memory ticketIssuerUrl) {
-        return METADATA_IE.getEventDataAll(eventAddress);
+    function addNftMetaPrimary(address eventAddress, uint256 nftIndex, uint256 orderTimeP, uint256 pricePaidP) public override onlyRelayer() returns(bool success) {
+        return super.addNftMetaPrimary(eventAddress, nftIndex, orderTimeP, pricePaidP);
+    }
+
+    function addNftMetaSecondary(address eventAddress, uint256 nftIndex, uint256 orderTimeS, uint256 pricePaidS) public override onlyRelayer() returns(bool success) {
+        return super.addNftMetaSecondary(eventAddress, nftIndex, orderTimeS, pricePaidS);
     }
 
     /**
