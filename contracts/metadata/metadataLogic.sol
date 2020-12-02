@@ -1,6 +1,5 @@
 pragma solidity ^0.6.0;
 
-import "./bouncerLogic.sol";
 pragma experimental ABIEncoderV2;
 
 contract metadataLogic {
@@ -113,7 +112,6 @@ contract metadataLogic {
     allEventStructs[eventAddress].listPointerE = eventAddresses.length -1;
 
     emit newEventRegistered(eventAddress, eventName, block.timestamp);
-
     return true;
   }
 
@@ -158,7 +156,8 @@ contract metadataLogic {
   }
 
     /**
-    * @dev TD
+    * @dev returns if address is registered as a ticketIssuer
+    * @param ticketIssuerAddress address of ticket issuer 
     */
   function isTicketIssuer(address ticketIssuerAddress) public view returns(bool isIndeed) {
     if(ticketIssuerAddresses.length == 0) return false;
@@ -166,7 +165,7 @@ contract metadataLogic {
   }
 
     /**
-    * @dev TD
+    * @dev outputs total amount of ticketIssuers
     */
   function getTicketIssuerCount() public view returns(uint256 ticketIssuerCount) {
     return ticketIssuerAddresses.length;

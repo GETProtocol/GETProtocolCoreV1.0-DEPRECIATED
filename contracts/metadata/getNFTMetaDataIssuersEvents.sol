@@ -1,26 +1,28 @@
 pragma solidity ^0.6.0;
 
-// import "../interfaces/IERCAccessControlGET.sol";
-// import "../Initializable.sol";
+// CONTRACT DEPRECIATED
+
+import "../interfaces/IERCAccessControlGET.sol";
+import "../Initializable.sol";
 
 pragma experimental ABIEncoderV2;
 
-contract getNFTMetaDataIssuersEvents {
-    // bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
-    // AccessContractGET public BOUNCER;
+contract getNFTMetaDataIssuersEvents is Initializable {
+    bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
+    AccessContractGET public BOUNCER;
 
-    // function initializeMetadata(address addressBouncer) public payable initializer {
-    //   BOUNCER = AccessContractGET(addressBouncer);
-    // }
+    function initializeMetadata(address addressBouncer) public payable initializer {
+      BOUNCER = AccessContractGET(addressBouncer);
+    }
 
-    // constructor() public {
-    //     BOUNCER = AccessContractGET(0xaC2D9016b846b09f441AbC2756b0895e529971CD);
-    // }
+    constructor() public {
+        BOUNCER = AccessContractGET(0xaC2D9016b846b09f441AbC2756b0895e529971CD);
+    }
 
-    // modifier onlyFactory() {
-    //     require(BOUNCER.hasRole(FACTORY_ROLE, msg.sender), "ACCESS DENIED - Restricted to GET Factory Contracts.");
-    //     _;
-    // } 
+    modifier onlyFactory() {
+        require(BOUNCER.hasRole(FACTORY_ROLE, msg.sender), "ACCESS DENIED - Restricted to GET Factory Contracts.");
+        _;
+    } 
 
     address public deployeraddress = msg.sender;
     uint256 public deployertime = now;

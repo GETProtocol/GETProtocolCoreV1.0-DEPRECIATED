@@ -1186,7 +1186,8 @@ contract ERC721_CLEAN is Context, ERC165, IERC721, IERC721Metadata, IERC721Enume
     mapping (uint256 => string) public _tokenURIs;
 
     // Base URI
-    string private _baseURI = "https://get-protocol.io/";
+    // string private _baseURI = "https://get-protocol.io/";
+    string private _baseURI;
 
     /*
      *     bytes4(keccak256('balanceOf(address)')) == 0x70a08231
@@ -1225,9 +1226,10 @@ contract ERC721_CLEAN is Context, ERC165, IERC721, IERC721Metadata, IERC721Enume
     /**
      * @dev Initializes the contract by setting a `name` and a `symbol` to the token collection.
      */
-    constructor (string memory name, string memory symbol) public {
+    constructor (string memory name, string memory symbol, string memory baseURI) public {
         _name = name;
         _symbol = symbol;
+        _baseURI = baseURI;
 
         // register the supported interfaces to conform to ERC721 via ERC165
         _registerInterface(_INTERFACE_ID_ERC721);
@@ -1548,14 +1550,27 @@ contract ERC721_CLEAN is Context, ERC165, IERC721, IERC721Metadata, IERC721Enume
         _tokenURIs[tokenId] = _tokenURI;
     }
 
-    /**
-     * @dev Internal function to set the base URI for all token IDs. It is
-     * automatically added as a prefix to the value returned in {tokenURI},
-     * or to the token ID if {tokenURI} is empty.
+    /** getNFT Custom
+     * @dev Internal function to set the name for all token IDs.
+     */
+    function _setName(string memory name_) internal virtual {
+        _name = name_;
+    }
+
+    /** getNFT Custom
+     * @dev Internal function to set the Symbol for all token IDs.
+     */
+    function _setSymbol(string memory symbol_) internal virtual {
+        _symbol = symbol_;
+    }
+
+    /** 
+     * @dev Internal function to set the base URI for all token IDs.
      */
     function _setBaseURI(string memory baseURI_) internal virtual {
         _baseURI = baseURI_;
     }
+
 
     /**
      * @dev Internal function to invoke {IERC721Receiver-onERC721Received} on a target address.
@@ -1781,7 +1796,7 @@ contract bouncerLogic {
 
 }
 
-// File: contracts/metadataLogic.sol
+// File: contracts/metadata/metadataLogic.sol
 
 pragma solidity ^0.6.0;
 
@@ -1897,7 +1912,6 @@ contract metadataLogic {
     allEventStructs[eventAddress].listPointerE = eventAddresses.length -1;
 
     emit newEventRegistered(eventAddress, eventName, block.timestamp);
-
     return true;
   }
 
@@ -1942,7 +1956,8 @@ contract metadataLogic {
   }
 
     /**
-    * @dev TD
+    * @dev returns if address is registered as a ticketIssuer
+    * @param ticketIssuerAddress address of ticket issuer 
     */
   function isTicketIssuer(address ticketIssuerAddress) public view returns(bool isIndeed) {
     if(ticketIssuerAddresses.length == 0) return false;
@@ -1950,7 +1965,7 @@ contract metadataLogic {
   }
 
     /**
-    * @dev TD
+    * @dev outputs total amount of ticketIssuers
     */
   function getTicketIssuerCount() public view returns(uint256 ticketIssuerCount) {
     return ticketIssuerAddresses.length;
@@ -1968,14 +1983,8 @@ pragma solidity ^0.6.0;
 
  
 abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, metadataLogic, bouncerLogic, Initializable {
-    function initializeMainFactory() public payable initializer {
-        _name = "GET PROTOCOL SMART TICKET FACTORY V3";
-        _symbol = "getNFT BSC V3";
-        _baseURI = "https://get-protocol.io/";
-        BOUNCER = AccessContractGET(0xaC2D9016b846b09f441AbC2756b0895e529971CD);
-    }
 
-    constructor () public ERC721_CLEAN("GET PROTOCOL SMART TICKET FACTORY V3", "getNFT BSC V3") {
+    constructor () public ERC721_CLEAN("GET PROTOCOL SMART TICKET FACTORY V3", "getNFT BSC V3", "https://get-protocol.io/") {
         BOUNCER = AccessContractGET(0xaC2D9016b846b09f441AbC2756b0895e529971CD); 
     }
 
@@ -1983,9 +1992,9 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, metadataLogic, bouncerLog
     Counters.Counter private _nftIndexs;
 
     mapping(uint256 => bool) public _nftScanned; 
+    mapping(uint256 => bool) public _nftInvalidated; 
     mapping (uint256 => address) private _ticketIssuerAddresses;  
     mapping (uint256 => address) private _eventAddresses;
-
 
     event txPrimaryMint(address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
     event txSecondary(address originAddress, address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
@@ -1995,6 +2004,7 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, metadataLogic, bouncerLog
     event noCoinerAlert(address indexed originAddress, uint indexed _timestamp);
     event illegalTransfer(address indexed originAddress,address indexed destinationAddress,uint256 indexed nftIndex, uint _timestamp);
     event illegalScan(address indexed originAddress, uint indexed _timestamp);
+    event nftInvalidated(uint256 indexed nftIndex, uint indexed _timestamp);
 
     /**  onlyRelayer - caller needs to be whitelisted relayer
     * @notice In the first transaction the ticketMetadata is stored in the metadata of the NFT.
@@ -2026,6 +2036,9 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, metadataLogic, bouncerLog
         // Set scanned state to false (unscanned state)
         _setnftScannedBool(nftIndex, false);
 
+        // Set invalidated bool to false (not invalidated)
+        _setnftInvalidBool(nftIndex, false);
+
         // Push Order data primary sale to metadata contract
         addNftMetaPrimary(eventAddress, nftIndex, orderTime, 50);
         
@@ -2033,6 +2046,39 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, metadataLogic, bouncerLog
         emit txPrimaryMint(destinationAddress, ticketIssuerAddress, nftIndex, block.timestamp);
         
         return nftIndex;
+    }
+
+
+    /**
+    * @dev invalidates the nft, making it impossible to move
+    * @param originAddress address of getNFT owner to be invalidated
+     */
+    function invalidateAddressNFT(address originAddress) public onlyRelayer() {
+        
+        uint256 nftIndex;
+        nftIndex = tokenOfOwnerByIndex(originAddress, 0);
+
+        // set invalidated to true
+        // _nftInvalidated[nftIndex] = true;
+        require(_nftInvalidated[nftIndex] != true, "GET TX FAILED Func: invalidateAddressNFT - getNFT is is already set to true");
+        _setnftInvalidBool(nftIndex, true);
+
+        emit nftInvalidated(nftIndex, block.timestamp);
+    }
+
+    /**
+    * @dev invalidates the nft, making it impossible to move
+    * @param nftIndex  index of getNFT to be invalidated
+     */
+    function invalidateIndexNFT(uint256 nftIndex) public onlyRelayer() {
+
+        // set invalidated to true
+        // _nftInvalidated[nftIndex] = true;
+
+        require(_nftInvalidated[nftIndex] != true, "GET TX FAILED Func: invalidateIndexNFT - getNFT is is already set to true");
+        _setnftInvalidBool(nftIndex, true);
+
+        emit nftInvalidated(nftIndex, block.timestamp);
     }
 
     /** 
@@ -2052,6 +2098,8 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, metadataLogic, bouncerLog
 
         uint256 nftIndex;
         nftIndex = tokenOfOwnerByIndex(originAddress, 0);
+
+        require(_nftInvalidated[nftIndex] == false, "GET TX FAILED Func: secondaryTransfer - getNFT is marked as invalidated");
 
         // Verify if originAddress is owner of nftIndex
         require(ownerOf(nftIndex) == originAddress, "GET TX FAILED Func: secondaryTransfer - transfer of nftIndexx that is not owned by owner");
@@ -2089,12 +2137,14 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, metadataLogic, bouncerLog
         uint256 nftIndex; 
         nftIndex = tokenOfOwnerByIndex(originAddress, 0);
 
+        require(_nftInvalidated[nftIndex] == false, "GET TX FAILED Func: scanNFT - getNFT is marked as invalidated");
+
         address destinationAddress = getAddressOfTicketIssuer(nftIndex);
 
         bool statusNft;
         statusNft = _nftScanned[nftIndex];
 
-        if (statusNft != true) {
+        if (statusNft == true) {
             // The getNFT has already been scanned. This is allowed, but needs to be displayed in the event feed.
             emit doubleScan(originAddress, nftIndex, block.timestamp);
             return; 
@@ -2202,12 +2252,19 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, metadataLogic, bouncerLog
 
     /**
     * @dev Sets a getNFT metadata value to true/false.
-    * @notice Will fail if nftScannedBool is already scanned. 
      */
-    function _setnftScannedBool (uint256 nftIndex, bool status) internal {
-        require(_exists(nftIndex), "GET TX FAILED Func: _setnftScannedBool: Nonexistent nftIndex");
+    function _setnftScannedBool(uint256 nftIndex, bool status) internal {
+        // require(_exists(nftIndex), "GET TX FAILED Func: _setnftScannedBool: Nonexistent nftIndex");
         _nftScanned[nftIndex] = status;
     }    
+
+    /**
+    * @dev Sets a getNFT invalid state to true/false.
+     */
+    function _setnftInvalidBool(uint256 nftIndex, bool status) internal {
+        // require(_exists(nftIndex), "GET TX FAILED Func: _setnftScannedBool: Nonexistent nftIndex");
+        _nftInvalidated[nftIndex] = status;
+    }        
 
 }
 
