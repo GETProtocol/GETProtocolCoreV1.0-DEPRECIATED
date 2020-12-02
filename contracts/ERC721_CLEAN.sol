@@ -49,7 +49,8 @@ contract ERC721_CLEAN is Context, ERC165, IERC721, IERC721Metadata, IERC721Enume
     mapping (uint256 => string) public _tokenURIs;
 
     // Base URI
-    string private _baseURI = "https://get-protocol.io/";
+    // string private _baseURI = "https://get-protocol.io/";
+    string private _baseURI;
 
     /*
      *     bytes4(keccak256('balanceOf(address)')) == 0x70a08231
@@ -88,9 +89,10 @@ contract ERC721_CLEAN is Context, ERC165, IERC721, IERC721Metadata, IERC721Enume
     /**
      * @dev Initializes the contract by setting a `name` and a `symbol` to the token collection.
      */
-    constructor (string memory name, string memory symbol) public {
+    constructor (string memory name, string memory symbol, string memory baseURI) public {
         _name = name;
         _symbol = symbol;
+        _baseURI = baseURI;
 
         // register the supported interfaces to conform to ERC721 via ERC165
         _registerInterface(_INTERFACE_ID_ERC721);
@@ -411,14 +413,27 @@ contract ERC721_CLEAN is Context, ERC165, IERC721, IERC721Metadata, IERC721Enume
         _tokenURIs[tokenId] = _tokenURI;
     }
 
-    /**
-     * @dev Internal function to set the base URI for all token IDs. It is
-     * automatically added as a prefix to the value returned in {tokenURI},
-     * or to the token ID if {tokenURI} is empty.
+    /** getNFT Custom
+     * @dev Internal function to set the name for all token IDs.
+     */
+    function _setName(string memory name_) internal virtual {
+        _name = name_;
+    }
+
+    /** getNFT Custom
+     * @dev Internal function to set the Symbol for all token IDs.
+     */
+    function _setSymbol(string memory symbol_) internal virtual {
+        _symbol = symbol_;
+    }
+
+    /** 
+     * @dev Internal function to set the base URI for all token IDs.
      */
     function _setBaseURI(string memory baseURI_) internal virtual {
         _baseURI = baseURI_;
     }
+
 
     /**
      * @dev Internal function to invoke {IERC721Receiver-onERC721Received} on a target address.
