@@ -47,14 +47,15 @@ contract metadataLogic {
         uint256 amountNFTs;
         uint256 grossRevenuePrimary;
         uint256 grossRevenueSecondary;
-        string callback_url;
+        string ticketeer_name;
+        // string callback_url;
         mapping (uint256 => OrdersPrimary) ordersprimary;
         mapping (uint256 => OrdersSecondary) orderssecondary;
         uint256 listPointerE;
     }
   
   /** 
-  * @dev TODO
+  * @dev storage function metadata of a primary market trade (issuer 2 fan)
   * @param eventAddress address of event controlling getNFT 
   * @param nftIndex unique index of getNFT
   * @param orderTimeP timestamp passed on by ticket issuer of order time of database ticket twin (primary market getNFT)
@@ -70,7 +71,7 @@ contract metadataLogic {
   }
 
   /** 
-  * @dev TODO
+  * @dev storage function metadata of a secondary market trade (fan 2 fan)
   * @param eventAddress address of event controlling getNFT 
   * @param nftIndex unique index of getNFT
   * @param orderTimeS timestamp passed on by ticket issuer of order time of database ticket twin (secondary market getNFT)
@@ -97,7 +98,7 @@ contract metadataLogic {
     return true;
   }
 
-  function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory latitude, string memory longitude, uint256 startingTime, address ticketIssuer, string memory callbackUrl) public virtual returns(bool success) {
+  function registerEvent(address eventAddress, string memory eventName, string memory shopUrl, string memory latitude, string memory longitude, uint256 startingTime, address ticketIssuer, string memory ticketeerName) public virtual returns(bool success) {
 
     allEventStructs[eventAddress].event_name = eventName;
     allEventStructs[eventAddress].shop_url = shopUrl;
@@ -106,8 +107,9 @@ contract metadataLogic {
 
     allEventStructs[eventAddress].start_time = startingTime;
     allEventStructs[eventAddress].ticketissuer_address = ticketIssuer;
-
-    allEventStructs[eventAddress].callback_url = callbackUrl;
+  
+    allEventStructs[eventAddress].ticketeer_name = ticketeerName;
+    // allEventStructs[eventAddress].callback_url = callbackUrl;
     eventAddresses.push(eventAddress);
     allEventStructs[eventAddress].listPointerE = eventAddresses.length -1;
 

@@ -3,11 +3,11 @@ pragma solidity ^0.6.0;
 import "./ERC721_CLEAN.sol";
 import "./Counters.sol";
 import "./interfaces/IERCAccessControlGET.sol";
-import "./Initializable.sol";
+// import "./Initializable.sol";
 import "./bouncerLogic.sol";
 import "./metadata/metadataLogic.sol";
  
-abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, metadataLogic, bouncerLogic, Initializable {
+abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, metadataLogic, bouncerLogic {
 
     constructor () public ERC721_CLEAN("GET PROTOCOL SMART TICKET FACTORY V3", "getNFT BSC V3", "https://get-protocol.io/") {
         BOUNCER = AccessContractGET(0xaC2D9016b846b09f441AbC2756b0895e529971CD); 
@@ -21,14 +21,23 @@ abstract contract ERC721_TICKETING_V3 is ERC721_CLEAN, metadataLogic, bouncerLog
     mapping (uint256 => address) private _ticketIssuerAddresses;  
     mapping (uint256 => address) private _eventAddresses;
 
+    // Primary market ticket sold/issued.
     event txPrimaryMint(address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
+    // Secondary market ticket traded/shared.
     event txSecondary(address originAddress, address indexed destinationAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
+    // Ticket scanned/validated.
     event txScan(address originAddress, address indexed ticketIssuer, uint256 indexed nftIndex, uint _timestamp);
+    //  An already valid ticket was scanned again.
     event doubleScan(address indexed originAddress, uint256 indexed nftIndex, uint indexed _timestamp);
+    // An destinationAddress already owns an getNFT (unusual due to rotation of fresh keys)
     event doubleNFTAlert(address indexed destinationAddress, uint indexed _timestamp);
+    // System wrongly assumes an originAddress owns an getNFT (owns none)
     event noCoinerAlert(address indexed originAddress, uint indexed _timestamp);
+    // System wrongly assumes an originAddress owns an getNFT (doesn't own this one)
     event illegalTransfer(address indexed originAddress,address indexed destinationAddress,uint256 indexed nftIndex, uint _timestamp);
+    // System attempts to scan an NFT on an orginAddress that isnt there
     event illegalScan(address indexed originAddress, uint indexed _timestamp);
+    // System attempts to invalidate an NFT that is already invalidated
     event nftInvalidated(uint256 indexed nftIndex, uint indexed _timestamp);
 
     /**  onlyRelayer - caller needs to be whitelisted relayer
