@@ -1,2 +1,11 @@
 truffle.js
 contracts/research/
+.openzeppelin/
+artifacts/
+cache/
+contracts_copy/
+migrations_copy/
+node_modules/
+test/
+hardhat.config.js
+scripts/
