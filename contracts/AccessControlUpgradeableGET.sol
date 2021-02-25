@@ -1,8 +1,8 @@
-// File: contracts/accesscontrol/EnumerableSet.sol
+// File: contracts/utils/EnumerableSetUpgradeable.sol
 
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.6.0;
+pragma solidity >=0.6.0 <0.8.0;
 
 /**
  * @dev Library for managing
@@ -25,10 +25,10 @@ pragma solidity ^0.6.0;
  * }
  * ```
  *
- * As of v3.0.0, only sets of type `address` (`AddressSet`) and `uint256`
- * (`UintSet`) are supported.
+ * As of v3.3.0, sets of type `bytes32` (`Bytes32Set`), `address` (`AddressSet`)
+ * and `uint256` (`UintSet`) are supported.
  */
-library EnumerableSet {
+library EnumerableSetUpgradeable {
     // To implement this library for multiple types with as little code
     // repetition as possible, we write it in terms of a generic Set type with
     // bytes32 values.
@@ -132,6 +132,60 @@ library EnumerableSet {
     function _at(Set storage set, uint256 index) private view returns (bytes32) {
         require(set._values.length > index, "EnumerableSet: index out of bounds");
         return set._values[index];
+    }
+
+    // Bytes32Set
+
+    struct Bytes32Set {
+        Set _inner;
+    }
+
+    /**
+     * @dev Add a value to a set. O(1).
+     *
+     * Returns true if the value was added to the set, that is if it was not
+     * already present.
+     */
+    function add(Bytes32Set storage set, bytes32 value) internal returns (bool) {
+        return _add(set._inner, value);
+    }
+
+    /**
+     * @dev Removes a value from a set. O(1).
+     *
+     * Returns true if the value was removed from the set, that is if it was
+     * present.
+     */
+    function remove(Bytes32Set storage set, bytes32 value) internal returns (bool) {
+        return _remove(set._inner, value);
+    }
+
+    /**
+     * @dev Returns true if the value is in the set. O(1).
+     */
+    function contains(Bytes32Set storage set, bytes32 value) internal view returns (bool) {
+        return _contains(set._inner, value);
+    }
+
+    /**
+     * @dev Returns the number of values in the set. O(1).
+     */
+    function length(Bytes32Set storage set) internal view returns (uint256) {
+        return _length(set._inner);
+    }
+
+   /**
+    * @dev Returns the value stored at position `index` in the set. O(1).
+    *
+    * Note that there are no guarantees on the ordering of values inside the
+    * array, and it may change when more values are added or removed.
+    *
+    * Requirements:
+    *
+    * - `index` must be strictly less than {length}.
+    */
+    function at(Bytes32Set storage set, uint256 index) internal view returns (bytes32) {
+        return _at(set._inner, index);
     }
 
     // AddressSet
@@ -244,16 +298,16 @@ library EnumerableSet {
     }
 }
 
-// File: contracts/accesscontrol/Address.sol
+// File: contracts/utils/AddressUpgradeable.sol
 
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.6.2;
+pragma solidity >=0.6.2 <0.8.0;
 
 /**
  * @dev Collection of functions related to the address type
  */
-library Address {
+library AddressUpgradeable {
     /**
      * @dev Returns true if `account` is a contract.
      *
@@ -436,9 +490,78 @@ library Address {
     }
 }
 
-// File: contracts/accesscontrol/Context.sol
+// File: contracts/proxy/Initializable.sol
 
-pragma solidity ^0.6.0;
+// SPDX-License-Identifier: MIT
+
+// solhint-disable-next-line compiler-version
+pragma solidity >=0.4.24 <0.8.0;
+
+
+/**
+ * @dev This is a base contract to aid in writing upgradeable contracts, or any kind of contract that will be deployed
+ * behind a proxy. Since a proxied contract can't have a constructor, it's common to move constructor logic to an
+ * external initializer function, usually called `initialize`. It then becomes necessary to protect this initializer
+ * function so it can only be called once. The {initializer} modifier provided by this contract will have this effect.
+ * 
+ * TIP: To avoid leaving the proxy in an uninitialized state, the initializer function should be called as early as
+ * possible by providing the encoded function call as the `_data` argument to {UpgradeableProxy-constructor}.
+ * 
+ * CAUTION: When used with inheritance, manual care must be taken to not invoke a parent initializer twice, or to ensure
+ * that all initializers are idempotent. This is not verified automatically as constructors are by Solidity.
+ */
+abstract contract Initializable {
+
+    /**
+     * @dev Indicates that the contract has been initialized.
+     */
+    bool private _initialized;
+
+    /**
+     * @dev Indicates that the contract is in the process of being initialized.
+     */
+    bool private _initializing;
+
+    /**
+     * @dev Modifier to protect an initializer function from being invoked twice.
+     */
+    modifier initializer() {
+        require(_initializing || _isConstructor() || !_initialized, "Initializable: contract is already initialized");
+
+        bool isTopLevelCall = !_initializing;
+        if (isTopLevelCall) {
+            _initializing = true;
+            _initialized = true;
+        }
+
+        _;
+
+        if (isTopLevelCall) {
+            _initializing = false;
+        }
+    }
+
+    /// @dev Returns true if and only if the function is running in the constructor
+    function _isConstructor() private view returns (bool) {
+        // extcodesize checks the size of the code stored in an address, and
+        // address returns the current address. Since the code is still not
+        // deployed when running a constructor, any checks on its code size will
+        // yield zero, making it an effective way to detect if a contract is
+        // under construction or not.
+        address self = address(this);
+        uint256 cs;
+        // solhint-disable-next-line no-inline-assembly
+        assembly { cs := extcodesize(self) }
+        return cs == 0;
+    }
+}
+
+// File: contracts/GSN/ContextUpgradeable.sol
+
+// SPDX-License-Identifier: MIT
+
+pragma solidity >=0.6.0 <0.8.0;
+
 
 /*
  * @dev Provides information about the current execution context, including the
@@ -450,7 +573,13 @@ pragma solidity ^0.6.0;
  *
  * This contract is only required for intermediate, library-like contracts.
  */
-abstract contract Context {
+abstract contract ContextUpgradeable is Initializable {
+    function __Context_init() internal initializer {
+        __Context_init_unchained();
+    }
+
+    function __Context_init_unchained() internal initializer {
+    }
     function _msgSender() internal view virtual returns (address payable) {
         return msg.sender;
     }
@@ -459,13 +588,15 @@ abstract contract Context {
         this; // silence state mutability warning without generating bytecode - see https://github.com/ethereum/solidity/issues/2691
         return msg.data;
     }
+    uint256[50] private __gap;
 }
 
-// File: contracts/accesscontrol/AccessControl.sol
+// File: contracts/access/AccessControlUpgradeable.sol
 
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.6.0;
+pragma solidity >=0.6.0 <0.8.0;
+
 
 
 
@@ -505,12 +636,19 @@ pragma solidity ^0.6.0;
  * grant and revoke this role. Extra precautions should be taken to secure
  * accounts that have been granted it.
  */
-abstract contract AccessControl is Context {
-    using EnumerableSet for EnumerableSet.AddressSet;
-    using Address for address;
+abstract contract AccessControlUpgradeable is Initializable, ContextUpgradeable {
+    function __AccessControl_init() internal initializer {
+        __Context_init_unchained();
+        __AccessControl_init_unchained();
+    }
+
+    function __AccessControl_init_unchained() internal initializer {
+    }
+    using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
+    using AddressUpgradeable for address;
 
     struct RoleData {
-        EnumerableSet.AddressSet members;
+        EnumerableSetUpgradeable.AddressSet members;
         bytes32 adminRole;
     }
 
@@ -678,28 +816,37 @@ abstract contract AccessControl is Context {
             emit RoleRevoked(role, account, _msgSender());
         }
     }
+    uint256[49] private __gap;
 }
 
-// File: contracts/accesscontrol/BouncerGET.sol
+// File: contracts/mocks/AccessControlMockUpgradeable.sol
 
-pragma solidity ^0.6.0;
+// SPDX-License-Identifier: MIT
+
+pragma solidity >=0.6.0 <0.8.0;
 
 
-contract BouncerGET is AccessControl {
-    bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
+
+contract AccessControlUpgradeableGET is Initializable, AccessControlUpgradeable {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
 
-    constructor () public {
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        grantRole(DEFAULT_ADMIN_ROLE, 0x6774CB231c63efAd9115d8a60DdD7Daed418d4B5);
-        
-        _setupRole(RELAYER_ROLE, msg.sender);
-        _setupRole(FACTORY_ROLE, msg.sender);
-        _setupRole(MINTER_ROLE, msg.sender);
-        
-        grantRole(RELAYER_ROLE, 0x6774CB231c63efAd9115d8a60DdD7Daed418d4B5);
-        grantRole(FACTORY_ROLE, 0x6774CB231c63efAd9115d8a60DdD7Daed418d4B5);
-        grantRole(MINTER_ROLE, 0x6774CB231c63efAd9115d8a60DdD7Daed418d4B5);
+    function __AccessControlGET_init() public initializer {
+        __Context_init_unchained();
+        __AccessControl_init_unchained();
+        __AccessControlMock_init_unchained();
+        _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
+        _setupRole(MINTER_ROLE, _msgSender());
+        _setupRole(PAUSER_ROLE, _msgSender());
     }
+
+    function __AccessControlMock_init_unchained() internal initializer {
+        _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
+    }
+
+    function setRoleAdmin(bytes32 roleId, bytes32 adminRoleId) public {
+        _setRoleAdmin(roleId, adminRoleId);
+    }
+    uint256[50] private __gap;
 }
