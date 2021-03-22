@@ -21,4 +21,4 @@ Deploy
 
 ### Commands
 npx hardhat run --network rinkeby scripts/deploy.js
-
+npx hardhat run --network ganache scripts/deploy_all_mainnet.js

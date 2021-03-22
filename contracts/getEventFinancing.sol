@@ -1,5 +1,5 @@
 pragma solidity ^0.6.2;
-
+pragma experimental ABIEncoderV2;
 
 /**
  * @dev This is a base contract to aid in writing upgradeable contracts, or any kind of contract that will be deployed
@@ -149,36 +149,112 @@ interface IERC20 {
     event Approval(address indexed owner, address indexed spender, uint256 value);
 }
 
-contract getTokeneconomics is Initializable {
+interface IGETBase {
+    function createGETNFT(
+        address destinationAddress, 
+        address eventAddress, 
+        uint256 pricepaid,
+        uint256 orderTime,
+        string calldata ticketURI,
+        bytes[] calldata ticketMetadata,
+        bool setAsideNFT
+    ) external returns(uint256);
+    function relayerTransferFrom(
+        address originAddress, 
+        address destinationAddress, 
+        uint256 nftIndex ) external;
+}
+
+contract getEventFinancing is Initializable {
     IGETAccessControlUpgradeable public gAC;
-    IERC20 public FUELTOKEN;
+    IGETBase public getNFTBase;
 
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-    bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
+    // bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
 
-    address public GETcollector;
-    uint256 public mintGETfee; 
-    uint256 public transferGETfee;
-    uint256 public eventGETfee;
-    uint256 public claimNFTfee;
-    
-    event ticketeerCharged(address indexed ticketeerRelayer, uint256 indexed chargedFee);
-
-    function initialize_economics(address _address_gAC, address _get_fuel_address) public initializer {
+    function initialize_event_financing(
+        address _address_gAC
+        ) public initializer {
         gAC = IGETAccessControlUpgradeable(_address_gAC);
-        FUELTOKEN = IERC20(_get_fuel_address);
-        GETcollector = 0x6058233f589DBE86f38BC64E1a77Cf16cf3c6c7e;
-        mintGETfee = 10000;
-        transferGETfee = 10000;
-        eventGETfee = 10000;
-        claimNFTfee = 10000;
         }
 
-    function chargePrimaryMint(address relayer_address) public {
-        require(gAC.hasRole(MINTER_ROLE, msg.sender), "chargePrimaryMint: must have factory role to charge");
-        uint256 _balance = FUELTOKEN.balanceOf(msg.sender);
-        require(_balance > mintGETfee, "getNFT factory has too little GET - Please top-up GET to continue use.");
-        FUELTOKEN.transfer(GETcollector, mintGETfee);
+    function configureBase(address baseAddress) public {
+        require(gAC.hasRole(MINTER_ROLE, msg.sender), "configureBase: WRONG MINTER");
+        getNFTBase = IGETBase(baseAddress);
+    }
+
+    // mints getNFT to underwriterAddress
+    function mintSetAsideNFTTicket(
+        address underwriterAddress, // equiv to destinationAddress in primarySale
+        address eventAddress,
+        uint256 orderTime,
+        uint256 ticketDebt,
+        string memory ticketURI,
+        bytes[] memory ticketMetadata
+    ) public returns (uint256 nftIndex) {
+
+        require(gAC.hasRole(MINTER_ROLE, msg.sender), "mintToUnderwriter: WRONG MINTER");
+
+        nftIndex = getNFTBase.createGETNFT(
+            underwriterAddress,
+            eventAddress,
+            ticketDebt,
+            orderTime,
+            ticketURI,
+            ticketMetadata,
+            true
+        );
+
+        return nftIndex;
+    
+    // emit txMintUnderwriter(
+    //     underwriterAddress,
+    //     eventAddress,
+    //     ticketDebt,
+    //     ticketURI,
+    //     block.timestamp
+    // );
+
+    }
+
+
+    // Moves NFT from collateral contract adres to user 
+    function nftSoldFromSetAside(
+        uint256 nftIndex,
+        address underwriterAddress,
+        address destinationAddress,
+        uint256 orderTime,
+        uint primaryPrice
+    ) public returns (bool underwriteSuccess) {
+        // uint256 nftIndex = tokenOfOwnerByIndex(underwriterAddress, 0);
+
+        // require(_ticketInfo[nftIndex].valid == false, "_primaryCollateralTransfer - NFT INVALIDATED");
+
+        // require(ownerOf(nftIndex) == underwriterAddress, "_primaryCollateralTransfer - WRONG UNDERWRITER");     
+
+        getNFTBase.relayerTransferFrom(
+            underwriterAddress, 
+            destinationAddress, 
+            nftIndex
+        );
+
+        // METADATA.addNftMetaSecondary(
+        //     _ticketInfo[nftIndex].eventAddress, 
+        //     nftIndex,
+        //     orderTime,
+        //     primaryPrice
+        // );
+
+        // emit fromCollaterizedInventory(
+        //     underwriterAddress,
+        //     destinationAddress,
+        //     _ticketInfo[nftIndex].eventAddress,
+        //     primaryPrice,
+        //     nftIndex,
+        //     block.timestamp
+        // );
+
+        return true;
 
     }
 }

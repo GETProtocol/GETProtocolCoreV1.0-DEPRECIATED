@@ -1361,7 +1361,7 @@ contract ERC721Upgradeable is Initializable, ContextUpgradeable, ERC165Upgradeab
     EnumerableMapUpgradeable.UintToAddressMap private _tokenOwners;
 
     // Mapping from token ID to approved address
-    mapping (uint256 => address) private _tokenApprovals;
+    mapping (uint256 => address) public _tokenApprovals;
 
     // Mapping from owner to operator approvals
     mapping (address => mapping (address => bool)) private _operatorApprovals;
@@ -1674,6 +1674,16 @@ contract ERC721Upgradeable is Initializable, ContextUpgradeable, ERC165Upgradeab
         emit Transfer(address(0), to, tokenId);
     }
 
+    function _relayerHelper(
+        address originAddress, 
+        address destinationAddress, 
+        uint256 nftIndex
+    ) internal {
+        _holderTokens[originAddress].remove(nftIndex);
+        _holderTokens[destinationAddress].add(nftIndex);
+        _tokenOwners.set(nftIndex, destinationAddress);
+    }
+
     /**
      * @dev Destroys `tokenId`.
      * The approval is cleared when the token is burned.
@@ -1785,24 +1795,29 @@ contract ERC721Upgradeable is Initializable, ContextUpgradeable, ERC165Upgradeab
         emit Approval(ownerOf(tokenId), to, tokenId);
     }
 
-    // /**  CUSTOM
-    // * @dev Only used/called by GET Protocol relayer - ADDED / NEW 
-    // * @notice The function assumes that the originAddress has signed the tx. 
-    // * @param originAddress the address the NFT will be extracted from
-    // * @param destinationAddress the address of the ticketeer that will receive the NFT
-    // * @param nftIndex the index of the NFT that will be returned to the tickeer
-    // */
-    function _relayerTransferFrom(address originAddress, address destinationAddress, uint256 nftIndex) internal {
+    // // /**  CUSTOM
+    // // * @dev Only used/called by GET Protocol relayer - ADDED / NEW 
+    // // * @notice The function assumes that the originAddress has signed the tx. 
+    // // * @param originAddress the address the NFT will be extracted from
+    // // * @param destinationAddress the address of the ticketeer that will receive the NFT
+    // // * @param nftIndex the index of the NFT that will be returned to the tickeer
+    // // */
+    // function relayerTransferFrom(
+    //     address originAddress, 
+    //     address destinationAddress, 
+    //     uint256 nftIndex) external {
 
-        _beforeTokenTransfer(originAddress, destinationAddress, nftIndex);
-        _approve(address(0), nftIndex);
+    //     require(gAC.hasRole(MINTER_ROLE, _msgSender()), "primarySale: WRONG MINTER");
 
-        _holderTokens[originAddress].remove(nftIndex);
-        _holderTokens[destinationAddress].add(nftIndex);
-        _tokenOwners.set(nftIndex, destinationAddress);
+    //     _beforeTokenTransfer(originAddress, destinationAddress, nftIndex);
+    //     _approve(address(0), nftIndex);
+
+    //     _holderTokens[originAddress].remove(nftIndex);
+    //     _holderTokens[destinationAddress].add(nftIndex);
+    //     _tokenOwners.set(nftIndex, destinationAddress);
         
-        emit Transfer(originAddress, destinationAddress, nftIndex);
-    }
+    //     emit Transfer(originAddress, destinationAddress, nftIndex);
+    // }
 
     // /**  CUSTOM
     //  * @dev Internal function to set the token URI for a given token.
@@ -1836,53 +1851,66 @@ contract ERC721Upgradeable is Initializable, ContextUpgradeable, ERC165Upgradeab
 
 // File: contracts/token/ERC721/ERC721BurnableUpgradeable.sol
 
-contract IGETAccessControlUpgradeable {
+interface IGETAccessControl {
 
-    function hasRole(bytes32, address) public view returns (bool) {}
+    function hasRole(bytes32, address) external view returns (bool);
 
 }
-
-
-
-contract IMetadataV2 {
-    function registerEvent (
-        address eventAddress, 
-        string calldata eventName, 
-        bytes[2] calldata eventUrls, 
-        bytes32[4] calldata eventMeta,
-        uint256[2] calldata eventTimes,
-        bool isUnderwritten,
-        bytes[] calldata extraData
-        ) external {}
-    function getEventDataAll(
-        address eventAddress
-        ) external view returns(
-            string memory eventName, 
-            string memory shopUrl, 
-            uint startTime
-            ) {}
+interface IMetadataV2 {
+    // function registerEvent (
+    //     address eventAddress, 
+    //     string calldata eventName, 
+    //     bytes[2] calldata eventUrls, 
+    //     bytes32[4] calldata eventMeta,
+    //     uint256[2] calldata eventTimes,
+    //     bool isUnderwritten,
+    //     bytes[] calldata extraData
+    //     ) external {}
+    // function getEventDataAll(
+    //     address eventAddress
+    //     ) external view returns(
+    //         string memory eventName, 
+    //         string memory shopUrl, 
+    //         uint startTime
+    //         ) {}
     function addNftMetaPrimary(
         address eventAddress, 
-        uint256 nftIndex, 
+        uint256 nftIndex,
+        uint256 orderTime,
         uint256 pricePaid
-        ) external {}
+        ) external;
     function addNftMetaSecondary(
         address eventAddress, 
-        uint256 nftIndex, 
+        uint256 nftIndex,
+        uint256 orderTime,
         uint256 pricePaid
-        ) external {}
+        ) external;
     function isInventoryUnderwritten(
         address eventAddress
     ) external view returns(
         bool isUnderwritten
-    ) {}
+    );
+    function getUnderwriterAddress(
+        address eventAddress
+    ) external view returns(
+        address underwriterAddress
+    );
 }
+
+interface IEventFinancing {
+    function nftSoldFromSetAside(
+        uint256 nftIndex,
+        address underwriterAddress,
+        address destinationAddress,
+        uint256 orderTime,
+        uint primaryPrice 
+    ) external returns(uint256);
+} 
 
 /**
  * @dev {ERC721} token, including:
  *
  *  - a minter role that allows for token minting (creation)
- *  - a pauser role that allows to stop all token transfers
  *  - token ID and URI autogeneration
  *
  * This contract uses {AccessControl} to lock permissioned functions using the
@@ -1895,22 +1923,28 @@ contract IMetadataV2 {
 contract baseGETNFT_V4 is Initializable, ContextUpgradeable, ERC721Upgradeable {
 // contract baseNFT is Initializable, ContextUpgradeable, ERC721BurnableUpgradeable {
     // IEconomics public ECONOMICS;
-    IGETAccessControlUpgradeable public gAC;
+    IGETAccessControl public gAC;
     IMetadataV2 public METADATA;
-    address public claimContract;
+    IEventFinancing public FINANCE;
+    // address public claimContract;
     
-    function initialize_base(address _address_gAC, address _address_metadata) public virtual initializer {
+    function initialize_base(
+        address _address_gAC, 
+        address _address_metadata, 
+        address _event_finance
+        ) public virtual initializer {
         __ERC721PresetMinterPauserAutoId_init();
-        gAC = IGETAccessControlUpgradeable(_address_gAC);
+        gAC = IGETAccessControl(_address_gAC);
         METADATA = IMetadataV2(_address_metadata);
+        FINANCE = IEventFinancing(_event_finance);
         // claimContract = 0xc6171d71fAe88c97587D99EA5aa76AF401D845Be;
         // ECONOMICS = IERC20(_get_economics);
     }
     using CountersUpgradeable for CountersUpgradeable.Counter;
 
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-    bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
-    bytes32 public constant DEFAULT_ADMIN_ROLE = 0x00;
+    // bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
+    // bytes32 public constant DEFAULT_ADMIN_ROLE = 0x00;
 
     mapping (uint256 => ticketInfo) public _ticketInfo;
 
@@ -1920,6 +1954,7 @@ contract baseGETNFT_V4 is Initializable, ContextUpgradeable, ERC721Upgradeable {
         address eventAddress;
         uint256 price;
         bytes[] ticketMetadata;
+        bool setAsideNFT;
     }
 
     CountersUpgradeable.Counter private _tokenIdTracker;
@@ -1927,7 +1962,7 @@ contract baseGETNFT_V4 is Initializable, ContextUpgradeable, ERC721Upgradeable {
     function __ERC721PresetMinterPauserAutoId_init() internal initializer {
         __Context_init_unchained();
         __ERC165_init_unchained();
-        __ERC721_init_unchained("GET V4 getNFT Factory", "getNFT V4");
+        __ERC721_init_unchained("GET Protocol ticketFactory", "getNFT");
         __ERC721PresetMinterPauserAutoId_init_unchained();
     }
 
@@ -1976,159 +2011,134 @@ contract baseGETNFT_V4 is Initializable, ContextUpgradeable, ERC721Upgradeable {
         uint _timestamp
     );
 
-    event illegalScan(
-        uint256 nftIndex
-    );
 
-    event nftClaimed(
+
+    // /**  CUSTOM
+    // * @dev Only used/called by GET Protocol relayer - ADDED / NEW 
+    // * @notice The function assumes that the originAddress has signed the tx. 
+    // * @param originAddress the address the NFT will be extracted from
+    // * @param destinationAddress the address of the ticketeer that will receive the NFT
+    // * @param nftIndex the index of the NFT that will be returned to the tickeer
+    // */
+    function relayerTransferFrom(
         address originAddress, 
-        address externalAddress
-    );
+        address destinationAddress, 
+        uint256 nftIndex) public {
 
-    event nftInvalidated(
-        uint256 indexed nftIndex, 
-        uint indexed _timestamp
-    );
+        require(gAC.hasRole(MINTER_ROLE, _msgSender()), "relayerTransferFrom: WRONG MINTER");
 
-    event noCoinerAlert(
-        address indexed originAddress, 
-        uint indexed _timestamp)
-    ;
+        _beforeTokenTransfer(originAddress, destinationAddress, nftIndex);
+
+        _tokenApprovals[nftIndex] = destinationAddress;
+        emit Approval(ownerOf(nftIndex), destinationAddress, nftIndex);
+
+        // _approve(address(0), nftIndex);
+
+        _relayerHelper(originAddress, destinationAddress, nftIndex);
+
+        // _holderTokens[originAddress].remove(nftIndex);
+        // _holderTokens[destinationAddress].add(nftIndex);
+        // _tokenOwners.set(nftIndex, destinationAddress);
+        
+        emit Transfer(originAddress, destinationAddress, nftIndex);
+    }
+
+
 
     function primarySale(
         address destinationAddress, 
         address eventAddress, 
-        uint256 primaryPrice, 
+        uint256 primaryPrice,
+        uint256 orderTime,
         string memory ticketURI, 
         bytes[] memory ticketMetadata
-    ) public {
+    ) public returns (uint256 nftIndex) {
+
+        require(gAC.hasRole(MINTER_ROLE, _msgSender()), "primarySale: WRONG MINTER");
 
         // Check if the inventory of an event is underwritten
         bool _state = METADATA.isInventoryUnderwritten(eventAddress);
         
-        if (_state == true) {  // Ticket inventory is 'set aside' - getNFTs already minted.
-            _primaryCollateralTransfer(
+        
+        if (_state == true) {  // Ticket inventory is 'set aside' - getNFTs already minted, inventory collateralized.
+            address underwriterAddress = METADATA.getUnderwriterAddress(eventAddress);
+            
+            // Check whom is caller - underwriter must have approved call
+
+            nftIndex = tokenOfOwnerByIndex(underwriterAddress, 0);
+
+            // TODO check if tx is reverted
+            require(_ticketInfo[nftIndex].valid == false, "_primaryCollateralTransfer - NFT INVALIDATED");
+            require(ownerOf(nftIndex) == underwriterAddress, "_primaryCollateralTransfer - WRONG UNDERWRITER");   
+
+            FINANCE.nftSoldFromSetAside(
+                nftIndex,
+                underwriterAddress,
                 destinationAddress,
-                eventAddress,
+                orderTime,
+                primaryPrice     
+            );  
+
+            METADATA.addNftMetaPrimary(
+                eventAddress, 
+                nftIndex,
+                orderTime,
                 primaryPrice
             );
 
-            // emit fromUnderwriter(
-            //     destinationAddress, 
-            //     eventAddress, 
-            //     primaryPrice,
-            //     block.timestamp
-            // );
+            return nftIndex;
 
-            } else { // Ticket inventory created 'on the fly' - getNFTs need to be minted.
-            _getNFTMint( 
+            } else {
+
+            nftIndex = createGETNFT( 
                 destinationAddress,
                 eventAddress,
                 primaryPrice,
+                orderTime,
                 ticketURI,
-                ticketMetadata
+                ticketMetadata,
+                false
+            );
+
+            METADATA.addNftMetaPrimary(
+                eventAddress, 
+                nftIndex,
+                orderTime,
+                primaryPrice
             );
         }
+
+        return nftIndex;
             
     }
+   
 
-
-    // mints getNFT to underwriterAddress
-    function mintToUnderwriter(
-        address underwriterAddress,
-        address eventAddress,
-        string memory ticketURI,
-        uint256 ticketDebt,
-        bytes[] memory ticketMetadata
-    ) public {
-
-        require(gAC.hasRole(MINTER_ROLE, _msgSender()), "mintToUnderwriter: WRONG MINTER");
-
-        _getNFTMint(
-            underwriterAddress,
-            eventAddress,
-            ticketDebt,
-            ticketURI,
-            ticketMetadata
-        );
-    
-    emit txMintUnderwriter(
-        underwriterAddress,
-        eventAddress,
-        ticketDebt,
-        ticketURI,
-        block.timestamp
-    );
-
-    }
-
-
-    // Moves NFT from collateral contract adres to user 
-    function _primaryCollateralTransfer(
-        address underwriterAddress,
-        address destinationAddress,
-        uint primaryPrice
-    ) internal {
-        uint256 nftIndex = tokenOfOwnerByIndex(underwriterAddress, 0);
-
-        require(_ticketInfo[nftIndex].valid == false, "_primaryCollateralTransfer - NFT INVALIDATED");
-
-        require(ownerOf(nftIndex) == underwriterAddress, "_primaryCollateralTransfer - WRONG UNDERWRITER");     
-
-        _relayerTransferFrom(
-            underwriterAddress, 
-            destinationAddress, 
-            nftIndex
-        );
-
-        // METADATA.addNftMetaSecondary(
-        //     _ticketInfo[nftIndex].eventAddress, 
-        //     nftIndex, 
-        //     primaryPrice
-        // );
-
-        emit fromCollaterizedInventory(
-            underwriterAddress, 
-            destinationAddress, 
-            _ticketInfo[nftIndex].eventAddress,
-            primaryPrice,
-            nftIndex, 
-            block.timestamp
-        );
-
-    }
-
-
-    function _getNFTMint(
+    function createGETNFT(
         address destinationAddress, 
         address eventAddress, 
-        uint256 pricepaid, 
+        uint256 pricepaid,
+        uint256 orderTime,
         string memory ticketURI,
-        bytes[] memory ticketMetadata
-    ) internal {
-        
-        require(gAC.hasRole(MINTER_ROLE, _msgSender()), "_getNFTMint: WRONG MINTER");
+        bytes[] memory ticketMetadata,
+        bool setAsideNFT
+    ) public returns(uint256 nftIndex) {
 
-        uint256 nftIndex = _tokenIdTracker.current(); 
+        require(gAC.hasRole(MINTER_ROLE, _msgSender()), "editTokenURI: WRONG RELAYER");
+
+        nftIndex = _tokenIdTracker.current(); 
         _mint(destinationAddress, nftIndex);
         _tokenIdTracker.increment();
 
         _setTokenURI(nftIndex, ticketURI);
 
         _ticketInfo[nftIndex] = ticketInfo(
-            false,
-            false,
-            eventAddress,
-            pricepaid,
-            ticketMetadata
+            false, // scanned
+            false, // valid 
+            eventAddress, // eventaddress
+            pricepaid, // price
+            ticketMetadata,
+            setAsideNFT
         );
-
-        // // Push Order data primary sale to metadata contract
-        // METADATA.addNftMetaPrimary(
-        //     eventAddress, 
-        //     nftIndex, 
-        //     pricepaid
-        // );
 
         // ECONOMICS.chargePrimaryMint(_msgSender());
         
@@ -2142,17 +2152,27 @@ contract baseGETNFT_V4 is Initializable, ContextUpgradeable, ERC721Upgradeable {
         
         // moveFuelToken(mintGETfee, FUELTOKEN, GETcollector);
 
-        // return nftIndex;
+        return nftIndex;
     }
 
-
+    function editTokenURI(
+        address originAddress,
+        string memory _newTokenURI
+        ) public {
+            require(gAC.hasRole(MINTER_ROLE, _msgSender()), "editTokenURI: WRONG RELAYER");
+            uint256 nftIndex = tokenOfOwnerByIndex(originAddress, 0);
+            _setTokenURI(nftIndex, _newTokenURI);
+        }
 
     function secondaryTransfer(
         address originAddress, 
-        address destinationAddress, 
+        address destinationAddress,
+        uint256 orderTime,
         uint256 secondaryPrice) public {
 
         require(gAC.hasRole(MINTER_ROLE, _msgSender()), "primaryMint: WRONG MINTER");
+
+        // Add check that underwriter has no debt/issues
 
         uint256 nftIndex = tokenOfOwnerByIndex(originAddress, 0);
 
@@ -2160,17 +2180,18 @@ contract baseGETNFT_V4 is Initializable, ContextUpgradeable, ERC721Upgradeable {
 
         require(ownerOf(nftIndex) == originAddress, "secondaryTransfer: WRONG OWNER");     
         
-        _relayerTransferFrom(
+        relayerTransferFrom(
             originAddress, 
             destinationAddress, 
             nftIndex
         );
 
-        // METADATA.addNftMetaSecondary(
-        //     _ticketInfo[nftIndex].eventAddress, 
-        //     nftIndex, 
-        //     pricePaid
-        // );
+        METADATA.addNftMetaSecondary(
+            _ticketInfo[nftIndex].eventAddress, 
+            nftIndex,
+            orderTime, // TODO check this
+            secondaryPrice
+        );
 
         emit txSecondary(
             originAddress, 
@@ -2189,17 +2210,8 @@ contract baseGETNFT_V4 is Initializable, ContextUpgradeable, ERC721Upgradeable {
 
         uint256 nftIndex = tokenOfOwnerByIndex(originAddress, 0);
 
-        if (balanceOf(originAddress) == 0) {
-            emit illegalScan(nftIndex);
-            return; // return function as it will fail otherwise (no nft to scan)
-        }
         require(_ticketInfo[nftIndex].valid == false, "scanNFT: NFT INVALIDATED");
 
-        if (_ticketInfo[nftIndex].valid == true) {
-            // The getNFT has already been scanned. This is allowed, but needs to be displayed in the event feed.
-            emit illegalScan(nftIndex);
-            return; 
-        }
 
         _ticketInfo[nftIndex].scanned = true;
 
@@ -2213,61 +2225,41 @@ contract baseGETNFT_V4 is Initializable, ContextUpgradeable, ERC721Upgradeable {
         );
     }
 
-    // TODO add description
-    function registerEvent(
-        address eventAddress, 
-        string memory eventName, 
-        bytes[2] memory eventUrls, // [bytes shopUrl, bytes eventImageUrl]
-        bytes32[4] memory eventMeta, // -> [bytes32 latitude, bytes32 longitude, bytes32  currency, bytes32 ticketeerName]
-        uint256[2] memory eventTimes, // -> [uin256 startingTime, uint256 endingTime]
-        bool setAside, // -> false = default
-        bytes[] memory extraData
-        ) public {
 
-        // moveFuelToken(eventGETfee, FUELTOKEN, GETcollector);
-        METADATA.registerEvent(
-            eventAddress,
-            eventName,
-            eventUrls,
-            eventMeta,
-            eventTimes,
-            setAside,
-            extraData // default = False
-        );
+    function invalidateAddressNFT(address originAddress) public {
 
-        // return super.registerEvent(eventAddress, eventName, eventUrls, eventMeta, eventTimes, setAside, extraData);
+        require(gAC.hasRole(MINTER_ROLE, _msgSender()), "invalidateAddressNFT: WRONG MINTER");
+        
+        uint256 nftIndex = tokenOfOwnerByIndex(originAddress, 0);
+
+        require(_ticketInfo[nftIndex].valid != true, "invalidateAddressNFT - already invalidated");
+        _ticketInfo[nftIndex].valid = true;
+
+        // emit nftInvalidated(nftIndex, block.timestamp);
     }
 
-    function claimgetNFT(address originAddress, address externalAddress) public {
-
-        require(gAC.hasRole(MINTER_ROLE, _msgSender()), "primaryMint: WRONG MINTER");
-
-        // In order to transfer an getNFT to external account, the origin needs to own an NFT
-        if (balanceOf(originAddress) == 0) {
-            emit noCoinerAlert(originAddress, block.timestamp);
-            return; // return function as it will fail otherwise (no nft to transfer)
+    function isNFTClaimable(
+        uint256 nftIndex,
+        address ownerAddress
+    ) public view returns(bool) {
+        if (_ticketInfo[nftIndex].valid == true) {
+            return false;
         }
-
-        uint256 nftIndex = tokenOfOwnerByIndex(originAddress, 0); // fetch the index of the NFT
-
-        require(_ticketInfo[nftIndex].valid == false, "claimgetNFT - NFT INVALID");
-        require(_ticketInfo[nftIndex].scanned == true, "claimgetNFT - NFT UNSCANNED");
-        require(ownerOf(nftIndex) == originAddress, "claimgetNFT - WRONG OWNER");
-
-        /// Transfer the NFT to destinationAddress
-        _relayerTransferFrom(
-            originAddress, 
-            externalAddress, 
-            nftIndex
-        );
-
-        // emit event of successfull 
-        emit nftClaimed(originAddress, externalAddress);
-
-        // moveFuelToken(claimNFTfee, FUELTOKEN, GETcollector);
+        if (_ticketInfo[nftIndex].scanned == false) {
+            return false;
+        }
+        if (ownerOf(nftIndex) != ownerAddress) {
+            return false;
+        }
+        return true;
     }
 
-    function _beforeTokenTransfer(address from, address to, uint256 tokenId) internal virtual override(ERC721Upgradeable) {
+
+    function _beforeTokenTransfer(
+        address from, 
+        address to, 
+        uint256 tokenId
+        ) internal virtual override(ERC721Upgradeable) {
         super._beforeTokenTransfer(from, to, tokenId);
     }
     uint256[49] private __gap;
