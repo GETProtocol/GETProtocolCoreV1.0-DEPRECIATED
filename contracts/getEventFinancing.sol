@@ -150,7 +150,7 @@ interface IERC20 {
 }
 
 interface IGETBase {
-    function createGETNFT(
+    function mintGETNFT(
         address destinationAddress, 
         address eventAddress, 
         uint256 pricepaid,
@@ -169,8 +169,8 @@ contract getEventFinancing is Initializable {
     IGETAccessControlUpgradeable public gAC;
     IGETBase public getNFTBase;
 
-    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-    // bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
+    bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
+    bytes32 public constant PROTOCOL_ROLE = keccak256("PROTOCOL_ROLE");
 
     function initialize_event_financing(
         address _address_gAC
@@ -179,7 +179,7 @@ contract getEventFinancing is Initializable {
         }
 
     function configureBase(address baseAddress) public {
-        require(gAC.hasRole(MINTER_ROLE, msg.sender), "configureBase: WRONG MINTER");
+        require(gAC.hasRole(RELAYER_ROLE, msg.sender), "configureBase: WRONG RELAYER");
         getNFTBase = IGETBase(baseAddress);
     }
 
@@ -193,9 +193,9 @@ contract getEventFinancing is Initializable {
         bytes[] memory ticketMetadata
     ) public returns (uint256 nftIndex) {
 
-        require(gAC.hasRole(MINTER_ROLE, msg.sender), "mintToUnderwriter: WRONG MINTER");
+        require(gAC.hasRole(RELAYER_ROLE, msg.sender), "mintToUnderwriter: WRONG RELAYER");
 
-        nftIndex = getNFTBase.createGETNFT(
+        nftIndex = getNFTBase.mintGETNFT(
             underwriterAddress,
             eventAddress,
             ticketDebt,
@@ -212,6 +212,7 @@ contract getEventFinancing is Initializable {
     //     eventAddress,
     //     ticketDebt,
     //     ticketURI,
+    //    orderTime,
     //     block.timestamp
     // );
 
@@ -219,7 +220,7 @@ contract getEventFinancing is Initializable {
 
 
     // Moves NFT from collateral contract adres to user 
-    function nftSoldFromSetAside(
+    function nftIssuedFromUnderwriter(
         uint256 nftIndex,
         address underwriterAddress,
         address destinationAddress,
@@ -227,9 +228,7 @@ contract getEventFinancing is Initializable {
         uint primaryPrice
     ) public returns (bool underwriteSuccess) {
         // uint256 nftIndex = tokenOfOwnerByIndex(underwriterAddress, 0);
-
         // require(_ticketInfo[nftIndex].valid == false, "_primaryCollateralTransfer - NFT INVALIDATED");
-
         // require(ownerOf(nftIndex) == underwriterAddress, "_primaryCollateralTransfer - WRONG UNDERWRITER");     
 
         getNFTBase.relayerTransferFrom(

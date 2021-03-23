@@ -153,7 +153,7 @@ contract getTokeneconomics is Initializable {
     IGETAccessControlUpgradeable public gAC;
     IERC20 public FUELTOKEN;
 
-    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
     bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
 
     address public GETcollector;
@@ -175,7 +175,7 @@ contract getTokeneconomics is Initializable {
         }
 
     function chargePrimaryMint(address relayer_address) public {
-        require(gAC.hasRole(MINTER_ROLE, msg.sender), "chargePrimaryMint: must have factory role to charge");
+        require(gAC.hasRole(RELAYER_ROLE, msg.sender), "chargePrimaryMint: must have factory role to charge");
         uint256 _balance = FUELTOKEN.balanceOf(msg.sender);
         require(_balance > mintGETfee, "getNFT factory has too little GET - Please top-up GET to continue use.");
         FUELTOKEN.transfer(GETcollector, mintGETfee);
