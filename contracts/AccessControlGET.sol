@@ -828,17 +828,16 @@ pragma solidity >=0.6.0 <0.8.0;
 
 
 contract AccessControlGET is Initializable, AccessControlUpgradeable {
-    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-    bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
+    bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
+    bytes32 public constant PROTOCOL_CONTRACT = keccak256("PROTOCOL_CONTRACT");
 
     function __AccessControlGET_init() public initializer {
         __Context_init_unchained();
         __AccessControl_init_unchained();
         __AccessControlMock_init_unchained();
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
-        _setupRole(MINTER_ROLE, _msgSender());
-        _setupRole(PAUSER_ROLE, _msgSender());
+        _setupRole(RELAYER_ROLE, _msgSender());
+        _setupRole(PROTOCOL_CONTRACT, _msgSender());
     }
 
     function __AccessControlMock_init_unchained() internal initializer {

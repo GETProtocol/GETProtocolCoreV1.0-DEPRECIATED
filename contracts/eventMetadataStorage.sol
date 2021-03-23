@@ -70,9 +70,9 @@ contract eventMetadataStorage is Initializable {
 
     mapping(address => EventStruct) public allEventStructs;
     address[] public eventAddresses;  
-    // bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
+    bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
     bytes32 public constant DEFAULT_ADMIN_ROLE = 0x00;
-    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
 
     function __initialize_metadata(address _address_gAC) public initializer {
       gAC = IGETAccessControl(_address_gAC);
@@ -86,7 +86,7 @@ contract eventMetadataStorage is Initializable {
     event newEventRegistered(
       address indexed eventAddress, 
       string indexed eventName,
-       uint256 indexed _timestamp
+      uint256 indexed timestamp
     );
     
     event primaryMarketNFTSold(
@@ -95,8 +95,10 @@ contract eventMetadataStorage is Initializable {
       uint256 indexed pricePaidP
     );
 
-    event secondaryMarketNFTSold(address indexed eventAddress, uint256 indexed nftIndex, uint256 indexed pricePaidS);
-
+    event secondaryMarketNFTSold(
+      address indexed eventAddress, 
+      uint256 indexed nftIndex, 
+      uint256 indexed pricePaidS);
 
     struct EventStruct {
         address event_address; 
@@ -123,7 +125,7 @@ contract eventMetadataStorage is Initializable {
     uint256 orderTime,
     uint256 pricePaidP) public virtual {
       
-      require(gAC.hasRole(MINTER_ROLE, msg.sender), "registerEvent: sender must have factory role to mint");
+      require(gAC.hasRole(RELAYER_ROLE, msg.sender), "addNftMetaPrimary: ILLEGAL PROTOCOL");
 
       EventStruct storage c = allEventStructs[eventAddress];
       // c.amountNFTs++;
@@ -147,17 +149,20 @@ contract eventMetadataStorage is Initializable {
     uint256 orderTime,
     uint256 pricePaidS
     ) public virtual {
-      require(gAC.hasRole(MINTER_ROLE, msg.sender), "registerEvent: sender must have factory role to mint");
+      require(gAC.hasRole(RELAYER_ROLE, msg.sender), "addNftMetaSecondary: ILLEGAL PROTOCOL");
+
       EventStruct storage c = allEventStructs[eventAddress];
       // c.orderssecondary[nftIndex] = OrdersSecondary({_nftIndex: nftIndex, _pricePaidS: pricePaidS, _orderTimeS: orderTimeS});
       // c.grossRevenueSecondary += pricePaidS;
-      emit secondaryMarketNFTSold(eventAddress, nftIndex, pricePaidS);
+      emit secondaryMarketNFTSold(
+        eventAddress, 
+        nftIndex, 
+        pricePaidS);
   }
 
   function registerEvent(
-    address eventAddress, 
+    address eventAddress,
     address integratorAccountPublicKeyHash,
-    address underwriterAddress,
     string memory eventName, 
     bytes[2] memory eventUrls, // [bytes shopUrl, bytes eventImageUrl]
     bytes32[4] memory eventMeta, // -> [bytes32 latitude, bytes32 longitude, bytes32  currency, bytes32 ticketeerName]
@@ -166,12 +171,14 @@ contract eventMetadataStorage is Initializable {
     bytes[] memory extraData
     ) public virtual {
 
-    require(gAC.hasRole(MINTER_ROLE, msg.sender), "registerEvent: sender must have factory role to mint");
+    require(gAC.hasRole(RELAYER_ROLE, msg.sender), "registerEvent: ILLEGAL RELAYER");
+
+    address underwriterAddress = 0x0000000000000000000000000000000000000000;
 
     allEventStructs[eventAddress] = EventStruct(
       eventAddress, // 1 address
       integratorAccountPublicKeyHash, // 2 address
-      underwriterAddress, // 3 address
+      underwriterAddress, // 3 address of colleterization contract
       eventName, // 4 string
       eventUrls, // 5 bytes[2]
       eventMeta, // 6 bytes32[4]
@@ -181,6 +188,12 @@ contract eventMetadataStorage is Initializable {
     );
 
     eventAddresses.push(eventAddress);
+
+    emit newEventRegistered(
+      eventAddress,
+      eventName,
+      block.timestamp
+    );
   
   }
 
@@ -210,6 +223,7 @@ contract eventMetadataStorage is Initializable {
       view 
       returns (
         address _integrator_address,
+        address _underwriter_address,
         string memory _event_name,
         bytes[2] memory _event_urls,
         bytes32[4] memory _event_meta,
@@ -220,6 +234,7 @@ contract eventMetadataStorage is Initializable {
       {
         EventStruct storage mdata = allEventStructs[eventAddress];
         _integrator_address = mdata.integrator_address;
+        _underwriter_address = mdata.underwriter_address;
         _event_name = mdata.event_name;
         _event_urls = mdata.event_urls;
         _event_meta = mdata.event_metadata;
@@ -227,24 +242,6 @@ contract eventMetadataStorage is Initializable {
         _set_aside = mdata.set_aside;
         _extra_data = mdata.extra_data;
     }
- 
-  // function getEventDataOld(address eventAddress)
-  //     public 
-  //     virtual 
-  //     view 
-  //     returns (
-  //       string memory _event_name,
-  //       bytes[2] memory _event_urls,
-  //       bytes32[4] memory _event_meta,
-  //       uint256[2] memory _event_times
-  //       )    
-  //     {
-  //       EventStruct storage mdata = allEventStructs[eventAddress];
-  //       _event_name = mdata.event_name;
-  //       _event_urls = mdata.event_urls;
-  //       _event_meta = mdata.event_metadata;
-  //       _event_times = mdata.event_times;
-  //   }
 
   function getEventCount() public view returns(uint256 eventCount) {
     return eventAddresses.length;

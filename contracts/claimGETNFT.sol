@@ -191,7 +191,7 @@ contract claimGETNFT is Initializable {
         address externalAddress
     );
 
-    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
     bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
 
     function initialize_claim_nft(
@@ -203,7 +203,7 @@ contract claimGETNFT is Initializable {
         }
 
     // function configureBase(address baseAddress) public {
-    //     require(gAC.hasRole(MINTER_ROLE, msg.sender), "configureBase: WRONG MINTER");
+    //     require(gAC.hasRole(RELAYER_ROLE, msg.sender), "configureBase: WRONG MINTER");
     //     getNFTBase = IGETBase(baseAddress);
     // }
 
@@ -211,7 +211,7 @@ contract claimGETNFT is Initializable {
         address originAddress, 
         address externalAddress) public {
 
-        require(gAC.hasRole(MINTER_ROLE, msg.sender), "claimgetNFT: WRONG MINTER");
+        require(gAC.hasRole(RELAYER_ROLE, msg.sender), "claimgetNFT: WRONG MINTER");
 
         require(getNFTBase.balanceOf(originAddress) == 0, "claimgetNFT: NO BALANCE");
         // if (getNFTBase.balanceOf(originAddress) == 0) {
@@ -240,6 +240,18 @@ contract claimGETNFT is Initializable {
 
         // moveFuelToken(claimNFTfee, FUELTOKEN, GETcollector);
         }
+
+    // function invalidateAddressNFT(address originAddress) public {
+
+    //     require(gAC.hasRole(RELAYER_ROLE, msg.sender), "invalidateAddressNFT: WRONG RELAYER");
+        
+    //     uint256 nftIndex = getNFTBase.tokenOfOwnerByIndex(originAddress, 0);
+
+    //     require(_ticketInfo[nftIndex].valid != true, "invalidateAddressNFT - already invalidated");
+    //     _ticketInfo[nftIndex].valid = true;
+
+    //     // emit nftInvalidated(nftIndex, block.timestamp);
+    // }
 
 
 }
