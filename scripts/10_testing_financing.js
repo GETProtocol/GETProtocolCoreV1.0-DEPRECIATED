@@ -3,13 +3,26 @@ const { ethers, upgrades } = require("hardhat");
 const NUM_EVENTS = 5;
 const NUM_TICKETS = 10;
 
+// Event Name: Awesome Event Name
+// Shop URL: https://ticketeer.io/event/shop
+// Image URL: https://ticketeer.io/shop/image.jpg
+// Latitude: -12.2345673
+// Longitude: 123.9876543
+// Currency: EUR
+// Ticketeer Name: Awesome Ticketeer
+// Starting Time: 1616584929
+// Ending Time: 1616589089
+// Set Aside: False
+// Extra Data: awesome_ticketeer_id
+
+
 async function main() {
 
-  const accessCAddress = "0x085C06560d10b99C96DdA9B8503aE57D51863A3f";
-  const metaCAddress = "0x3536C93F376e9c0F6cbE244005063B5888F8cb0B";
-  const financeCAddress = "0xfcD93a9CF6cb05a64c8011fF1637Ee4e1b4D0b42"
-  const baseCAddress = "0xaA699D95c42D6BdcC1D828d426b21A5eaDD9341e"
-  const claimCAddress = "0xD75D4a98297273103B97557dC7fDeB333396EB84"
+  const accessCAddress = "0x2B7115801FC19D246db4193DfA6Fa4F215335d60";
+  const metaCAddress = "0x62804B8305F01910AEEb969F82D69776bc1c5B75";
+  const financeCAddress = "0xFA099f624ca296e8FB8b29Ac8D17322A964E1441"
+  const baseCAddress = "0x44abC50ebdaBa1C928d59B1D2822C6A51f297E64"
+  const claimCAddress = "0xc1123E480F810177296dD3211b48a4D0B0592b91"
 
   const event_1 = "0x077A76A76c9c56f04c9aF90B5f6694697E2F3b40"
   const event_2 = "0x1A837C123D63b41bBE2BE4F83DEedFC29B81c713"
@@ -48,7 +61,7 @@ async function main() {
     acc_11, acc_12, acc_13, acc_14, acc_15, acc_16, acc_17, acc_18, acc_19, acc_20
   ]
   
-  // const MINTER_ROLE = web3.utils.soliditySha3('MINTER_ROLE');
+  // const RELAYER_ROLE = web3.utils.soliditySha3('RELAYER_ROLE');
   // const FACTORY_ROLE = web3.utils.soliditySha3('FACTORY_ROLE');
   // const acc_testing = "0x0D5BF3570ddf4c5b72aFc014F4b728B67e44Ea7f";
 
@@ -71,20 +84,44 @@ async function main() {
   const main_acc = "0x6382Dcd7954Ef8d0D3C2A203aA1Bd3aE71c82e42";
   // const acc_2 = "0x6382Dcd7954Ef8d0D3C2A203aA1Bd3aE71c82e42";
 
+  // function registerEvent(
+  //   address eventAddress,
+  //   address integratorAccountPublicKeyHash,
+  //   string memory eventName, 
+  //   bytes[2] memory eventUrls, // [bytes shopUrl, bytes eventImageUrl]
+  //   bytes32[4] memory eventMeta, // -> [bytes32 latitude, bytes32 longitude, bytes32  currency, bytes32 ticketeerName]
+  //   uint256[2] memory eventTimes, // -> [uin256 startingTime, uint256 endingTime]
+  //   bool setAside, // -> false = default
+  //   bytes[] memory extraData
+  //   ) public virtual {
+
+
+  const event_name = "Awesome Event Name"
+  const shop_url = "https://ticketeer.io/event/shop"
+  const image_url = "https://ticketeer.io/shop/image.jpg"
+  const latitude_test = "-12.2345673"
+  const longitude_test = "123.9876543"
+  const currency_test = "EUR"
+  const ticketeer_name_t = "Awesome Ticketeer"
+  const start_time_test = 1616584929
+  const stop_top_test = 1616589089
+  const set_aside_test = false // bool 
+  const extra_data_test = "awesome_ticketeer_id"
+
+
   // Creatures issued directly to the owner.
   for (var i = 0; i < NUM_EVENTS; i++) {
     var bytedata = ethers.utils.formatBytes32String("DATA  " + i);
-    // const result = await _contract.connect().registerEvent(accounts[i].address, "eventname", "whatever.nl", bytedata, bytedata, bytedata, i, bytedata);
     const result = await meta.registerEvent(
       list_events[i], // eventAddress
       main_acc, // integratorAccountPublicKeyHash
-      claimCAddress, // underwriterAddress
-      "Event name testing script 9", // eventName
-      [bytedata, bytedata], // eventUrls
-      [bytedata, bytedata, bytedata, bytedata], // eventMeta
-      [111,i], // eventTimes
+      // claimCAddress, // underwriterAddress
+      event_name, // eventName
+      [ethers.utils.formatBytes32String(shop_url), ethers.utils.formatBytes32String(image_url)], // eventUrls
+      [ethers.utils.formatBytes32String(latitude_test), ethers.utils.formatBytes32String(longitude_test), ethers.utils.formatBytes32String(currency_test), ethers.utils.formatBytes32String(ticketeer_name_t)], // eventMeta
+      [start_time_test,stop_top_test], // eventTimes
       true, // setAside
-      [bytedata, bytedata] // extraData
+      [ethers.utils.formatBytes32String(extra_data_test)] // extraData
       )
     console.log("Event metadata registered. Tx hash: " + result.hash + "   " + i);
     console.log("   ")

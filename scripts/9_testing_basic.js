@@ -5,11 +5,11 @@ const NUM_TICKETS = 10;
 
 async function main() {
 
-  const accessCAddress = "0xd160Ce34f8CA708564A235BDB38aEBFf33774DB4";
-  const metaCAddress = "0x04CcCf6FF8b7e7038B8B54853cca6D9dBC708a0b";
-  const financeCAddress = "0xFb0ea13B249002f45BEB6f87affD17d56FDd6808"
-  const baseCAddress = "0x0a3B890580C35646de5C5BCf92aa12F09a086EC1"
-  const claimCAddress = "0xE19a849dbcB6d39d41168Cf420D0BD86b3Fd1075"
+  const accessCAddress = "0xe549607dB66cfc90073f815FA3343d2a3a001D8c";
+  const metaCAddress = "0x5Ef355b61f71D5D51F40f7de47752Cfe1D7F9A8f";
+  const financeCAddress = "0x67D2A56D331C5Ee462bC883c36E5dE453fc55E30"
+  const baseCAddress = "0x369E54e9c70893Dd1a8000E8880BB9c75B822655"
+  const claimCAddress = "0xb32D5B42AfC0F3B5ceD678Ed193Bc3A2DA1d93E0"
 
   const event_1 = "0x077A76A76c9c56f04c9aF90B5f6694697E2F3b40"
   const event_2 = "0x1A837C123D63b41bBE2BE4F83DEedFC29B81c713"
@@ -48,7 +48,7 @@ async function main() {
     acc_11, acc_12, acc_13, acc_14, acc_15, acc_16, acc_17, acc_18, acc_19, acc_20
   ]
   
-  // const MINTER_ROLE = web3.utils.soliditySha3('MINTER_ROLE');
+  // const RELAYER_ROLE = web3.utils.soliditySha3('RELAYER_ROLE');
   // const FACTORY_ROLE = web3.utils.soliditySha3('FACTORY_ROLE');
   // const acc_testing = "0x0D5BF3570ddf4c5b72aFc014F4b728B67e44Ea7f";
 
@@ -71,25 +71,61 @@ async function main() {
   const main_acc = "0x6382Dcd7954Ef8d0D3C2A203aA1Bd3aE71c82e42";
   // const acc_2 = "0x6382Dcd7954Ef8d0D3C2A203aA1Bd3aE71c82e42";
 
+  const event_name = "Awesome Event Name"
+  const shop_url = "ticketeer.io/event/shop"
+  const image_url = "ticketeer.io/shop/image.jpg"
+  const latitude_test = "-12.2345673"
+  const longitude_test = "123.9876543"
+  const currency_test = "EUR"
+  const ticketeer_name_t = "Awesome Ticketeer"
+  const start_time_test = 1616584929
+  const stop_top_test = 1616589089
+  const set_aside_test = false // bool 
+  const extra_data_test = "awesome_ticketeer_id"
+
+
   // Creatures issued directly to the owner.
   for (var i = 0; i < NUM_EVENTS; i++) {
     var bytedata = ethers.utils.formatBytes32String("DATA  " + i);
-    // const result = await _contract.connect().registerEvent(accounts[i].address, "eventname", "whatever.nl", bytedata, bytedata, bytedata, i, bytedata);
     const result = await meta.registerEvent(
       list_events[i], // eventAddress
       main_acc, // integratorAccountPublicKeyHash
-      claimCAddress, // underwriterAddress
-      "Event name testing script 9", // eventName
-      [bytedata, bytedata], // eventUrls
-      [bytedata, bytedata, bytedata, bytedata], // eventMeta
-      [111,i], // eventTimes
-      false, // setAside
-      [bytedata, bytedata] // extraData
+      // claimCAddress, // underwriterAddress
+      event_name, // eventName
+      // [ethers.utils.formatBytes32String(shop_url), ethers.utils.formatBytes32String(image_url)], // eventUrls
+      shop_url,
+      image_url,
+      [ethers.utils.formatBytes32String(latitude_test), ethers.utils.formatBytes32String(longitude_test), ethers.utils.formatBytes32String(currency_test), ethers.utils.formatBytes32String(ticketeer_name_t)], // eventMeta
+      [start_time_test,stop_top_test], // eventTimes
+      set_aside_test, // setAside
+      [ethers.utils.formatBytes32String(extra_data_test)] // extraData
       )
-    console.log("Event metadata registered. Transaction: " + result.hash + "   " + i);
+    console.log("Event metadata registered. Tx hash: " + result.hash + "   " + i);
+    console.log("   ")
   }
 
+
   console.log("Event registration completed");
+
+  // // Creatures issued directly to the owner.
+  // for (var i = 0; i < NUM_EVENTS; i++) {
+  //   var bytedata = ethers.utils.formatBytes32String("DATA  " + i);
+  //   // const result = await _contract.connect().registerEvent(accounts[i].address, "eventname", "whatever.nl", bytedata, bytedata, bytedata, i, bytedata);
+  //   const result = await meta.registerEvent(
+  //     list_events[i], // eventAddress
+  //     main_acc, // integratorAccountPublicKeyHash
+  //     // claimCAddress, // underwriterAddress
+  //     "Event name testing script 9", // eventName
+  //     [bytedata, bytedata], // eventUrls
+  //     [bytedata, bytedata, bytedata, bytedata], // eventMeta
+  //     [111,i], // eventTimes
+  //     false, // setAside
+  //     [bytedata, bytedata] // extraData
+  //     )
+  //   console.log("Event metadata registered. Transaction: " + result.hash + "   " + i);
+  // }
+
+  // console.log("Event registration completed");
 
   // const accounts = await ethers.getSigners();
 
@@ -103,14 +139,15 @@ async function main() {
       "Ticket URI testing 9", // ticketURI
       [bytedata]) // ticketMetadata
     // var x = await contractInstance.methods.getIdentifier().call();
-    var nftindex = await base.tokenOfOwnerByIndex(list_accs[i], 0);
-    console.log("nftIndex of minted token: " + nftindex)
+    console.log("Mint done")
+    // var nftindex = await base.tokenOfOwnerByIndex(list_accs[i], 0);
+    // console.log("nftIndex of minted token: " + nftindex)
     console.log("Minted. Transaction: " + result.hash + "   " + i)
   }
 
   console.log("Primary minting completed");
 
-  const start_ticket = NUM_TICKETS + 1
+  const start_ticket = NUM_TICKETS
   const max_ticket = NUM_TICKETS * 2
 
   for (var i = start_ticket; i < max_ticket; i++) {
@@ -122,8 +159,9 @@ async function main() {
       i + 2000, // orderTime
       i + 9999 // secondaryPrice
       )
-    var nftindex = await base.tokenOfOwnerByIndex(list_accs[i], 0);
-    console.log("nftIndex of minted token: " + nftindex)
+    console.log("Secondary done")
+    // var nftindex = await base.tokenOfOwnerByIndex(list_accs[i], 0);
+    // console.log("nftIndex of minted token: " + nftindex)
     console.log("Secondary transfer. Transaction: " + result.hash + "   " + i);
   }
 

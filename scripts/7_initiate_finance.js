@@ -7,7 +7,7 @@ async function main() {
     const baseCAddress = "0xfCbC4b1a1faca60e00B3cbaCd5AD8ce998518051"
     const financeCAddress = "0xF1dC80ae74eA126B17387C8010fA31C2969eC7F2";
 
-    // const MINTER_ROLE = web3.utils.soliditySha3('MINTER_ROLE')
+    // const RELAYER_ROLE = web3.utils.soliditySha3('RELAYER_ROLE')
     // const FACTORY_ROLE = web3.utils.soliditySha3('FACTORY_ROLE')
 
     // const acc_testing = "0x0D5BF3570ddf4c5b72aFc014F4b728B67e44Ea7f"
