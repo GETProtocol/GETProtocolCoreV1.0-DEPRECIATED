@@ -9,7 +9,7 @@ async function main() {
     const baseCAddress = "0xfCbC4b1a1faca60e00B3cbaCd5AD8ce998518051"
     const claimCAddress = "0x02192Ada9cC91b06559f697947a7606938cc8989"
 
-    const MINTER_ROLE = web3.utils.soliditySha3('MINTER_ROLE')
+    const RELAYER_ROLE = web3.utils.soliditySha3('RELAYER_ROLE')
     // const FACTORY_ROLE = web3.utils.soliditySha3('FACTORY_ROLE')
 
     const acc_testing = "0x6058233f589DBE86f38BC64E1a77Cf16cf3c6c7e"
@@ -18,19 +18,19 @@ async function main() {
     const access = Access.attach(accessCAddress)
 
     console.log("Granting minting access to:", financeCAddress)
-    const result1 = await access.grantRole(MINTER_ROLE, financeCAddress)
+    const result1 = await access.grantRole(RELAYER_ROLE, financeCAddress)
     console.log("Completed 1/4")
 
     console.log("Granting minting access to:", baseCAddress)
-    const result2 = await access.grantRole(MINTER_ROLE, baseCAddress)
+    const result2 = await access.grantRole(RELAYER_ROLE, baseCAddress)
     console.log("Completed 2/4")
 
     console.log("Granting minting access to:", acc_testing)
-    const result3 = await access.grantRole(MINTER_ROLE, acc_testing)
+    const result3 = await access.grantRole(RELAYER_ROLE, acc_testing)
     console.log("Completed 3/4")
 
     console.log("Granting minting access to:", claimCAddress)
-    const result4 = await access.grantRole(MINTER_ROLE, claimCAddress)
+    const result4 = await access.grantRole(RELAYER_ROLE, claimCAddress)
     console.log("Completed 4/4")
 
     // console.log("Granting minting access to:", baseCAddress)
