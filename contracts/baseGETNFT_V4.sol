@@ -1819,18 +1819,18 @@ interface IMetadataV2 {
     //         string memory shopUrl, 
     //         uint startTime
     //         ) {}
-    function addNftMetaPrimary(
-        address eventAddress, 
-        uint256 nftIndex,
-        uint256 orderTime,
-        uint256 pricePaid
-        ) external;
-    function addNftMetaSecondary(
-        address eventAddress, 
-        uint256 nftIndex,
-        uint256 orderTime,
-        uint256 pricePaid
-        ) external;
+    // function addNftMetaPrimary(
+    //     address eventAddress, 
+    //     uint256 nftIndex,
+    //     uint256 orderTime,
+    //     uint256 pricePaid
+    //     ) external;
+    // function addNftMetaSecondary(
+    //     address eventAddress, 
+    //     uint256 nftIndex,
+    //     uint256 orderTime,
+    //     uint256 pricePaid
+    //     ) external;
     function isInventoryUnderwritten(
         address eventAddress
     ) external view returns(
@@ -1844,13 +1844,13 @@ interface IMetadataV2 {
 }
 
 interface IEventFinancing {
-    function nftIssuedFromUnderwriter(
+    function collateralizedNFTSold(
         uint256 nftIndex,
         address underwriterAddress,
         address destinationAddress,
         uint256 orderTime,
         uint primaryPrice 
-    ) external returns(uint256);
+    ) external;
 } 
 
 /**
@@ -1882,8 +1882,6 @@ contract baseGETNFT_V4 is Initializable, ContextUpgradeable, ERC721Upgradeable {
         gAC = IGETAccessControl(_address_gAC);
         METADATA = IMetadataV2(_address_metadata);
         FINANCE = IEventFinancing(_event_finance);
-        // claimContract = 0xc6171d71fAe88c97587D99EA5aa76AF401D845Be;
-        // ECONOMICS = IERC20(_get_economics);
     }
     using CountersUpgradeable for CountersUpgradeable.Counter;
 
@@ -1891,15 +1889,15 @@ contract baseGETNFT_V4 is Initializable, ContextUpgradeable, ERC721Upgradeable {
     bytes32 public constant PROTOCOL_ROLE = keccak256("PROTOCOL_ROLE");
     // bytes32 public constant DEFAULT_ADMIN_ROLE = 0x00;
 
-    mapping (uint256 => ticketInfo) private _ticketInfo;
+    mapping (uint256 => TicketData) private _ticket_data;
 
-    struct ticketInfo {
+    struct TicketData {
+        address event_address;
         bool scanned;
         bool valid;
-        address event_address;
-        uint256 price;
-        bytes[] ticket_metadata;
-        bool set_aside_nft;
+        bytes32[] ticket_metadata;
+        bool set_aside;
+        uint256[] prices_sold;
     }
 
     CountersUpgradeable.Counter private _tokenIdTracker;
@@ -1924,22 +1922,15 @@ contract baseGETNFT_V4 is Initializable, ContextUpgradeable, ERC721Upgradeable {
         uint _timestamp
     );
 
-    // event fromCollaterizedInventory(
-    //     address underwriterAddress,
-    //     address indexed destinationAddress, 
-    //     address indexed eventAddress,
-    //     uint256 indexed primaryPrice,
-    //     uint256 nftIndex,
-    //     uint _timestamp 
-    // );
-
-    // event txMintUnderwriter(
-    //     address indexed underwriterAddress, 
-    //     address indexed eventAddress,
-    //     uint256 indexed ticketDebt,
-    //     string ticketURI,
-    //     uint _timestamp 
-    // );
+    event saleForUnderwriter(
+        uint256 nftIndex,
+        address underwriterAddress,
+        address indexed destinationAddress, 
+        address indexed eventAddress,
+        uint256 indexed primaryPrice,
+        uint256 orderTime,
+        uint _timestamp 
+    );
 
     event txSecondary(
         address originAddress,
@@ -2008,51 +1999,46 @@ contract baseGETNFT_V4 is Initializable, ContextUpgradeable, ERC721Upgradeable {
         uint256 primaryPrice,
         uint256 orderTime,
         string memory ticketURI, 
-        bytes[] memory ticketMetadata
+        bytes32[] memory ticketMetadata
     ) public returns (uint256 nftIndex) {
 
         require(gAC.hasRole(RELAYER_ROLE, _msgSender()), "primarySale: WRONG MINTER");
 
-        // Check if the inventory of an event is underwritten/collaterialized
-        bool _state = METADATA.isInventoryUnderwritten(eventAddress);
+        bool _state = false;
+        _state = METADATA.isInventoryUnderwritten(eventAddress);
         
         if (_state == true) {  // Ticket inventory is 'set aside' - getNFTs already minted, inventory collateralized.
             address underwriterAddress = METADATA.getUnderwriterAddress(eventAddress);
             
-            // Check whom is caller - underwriter must have approved call
-
             nftIndex = tokenOfOwnerByIndex(underwriterAddress, 0);
 
-            // TODO check if tx is reverted
-            require(_ticketInfo[nftIndex].valid == false, "_primaryCollateralTransfer - NFT INVALIDATED");
-            require(ownerOf(nftIndex) == underwriterAddress, "_primaryCollateralTransfer - WRONG UNDERWRITER");   
+            require(_ticket_data[nftIndex].valid == true, "primarySale - NFT INVALIDATED");
+            require(ownerOf(nftIndex) == underwriterAddress, "primarySale - WRONG UNDERWRITER");   
 
-            // FINANCE.nftSoldFromSetAside(
-            FINANCE.nftIssuedFromUnderwriter(
+            FINANCE.collateralizedNFTSold(
                 nftIndex,
                 underwriterAddress,
                 destinationAddress,
                 orderTime,
                 primaryPrice     
-            );  
-
-            METADATA.addNftMetaPrimary(
-                eventAddress, 
-                nftIndex,
-                orderTime,
-                primaryPrice
             );
 
-            // emit fromUnderwriter(
-            //     destinationAddress, 
-            //     eventAddress, 
-            //     primaryPrice,
-            //     block.timestamp
-            // );
+            _ticket_data[nftIndex].prices_sold.push(primaryPrice);
+
+            emit saleForUnderwriter(
+                nftIndex,
+                underwriterAddress,
+                destinationAddress, 
+                eventAddress, 
+                primaryPrice,
+                orderTime,
+                block.timestamp
+            );
 
             return nftIndex;
 
             } else { // fresh getNFT minted directly to fan-EOA
+
 
             nftIndex = mintGETNFT( 
                 destinationAddress,
@@ -2061,15 +2047,10 @@ contract baseGETNFT_V4 is Initializable, ContextUpgradeable, ERC721Upgradeable {
                 orderTime,
                 ticketURI,
                 ticketMetadata,
-                false
+                false // nft is minted to a user, not an underwriter contract
             );
 
-            METADATA.addNftMetaPrimary( // save metadata of tx in metadata contract
-                eventAddress, 
-                nftIndex,
-                orderTime,
-                primaryPrice
-            );
+            _ticket_data[nftIndex].prices_sold.push(primaryPrice);
         }
 
         return nftIndex;
@@ -2083,7 +2064,7 @@ contract baseGETNFT_V4 is Initializable, ContextUpgradeable, ERC721Upgradeable {
         uint256 pricepaid,
         uint256 orderTime,
         string memory ticketURI,
-        bytes[] memory ticketMetadata,
+        bytes32[] memory ticketMetadata,
         bool setAsideNFT
     ) public returns(uint256 nftIndex) {
 
@@ -2095,16 +2076,12 @@ contract baseGETNFT_V4 is Initializable, ContextUpgradeable, ERC721Upgradeable {
 
         _setTokenURI(nftIndex, ticketURI);
 
-        _ticketInfo[nftIndex] = ticketInfo(
-            false, // scanned
-            false, // valid 
-            eventAddress, // eventaddress
-            pricepaid, // price
-            ticketMetadata,
-            setAsideNFT // is NFT colleterized
-        );
-
-        // ECONOMICS.chargePrimaryMint(_msgSender());
+        TicketData storage tdata = _ticket_data[nftIndex];
+        tdata.event_address = eventAddress;
+        tdata.scanned = false;
+        tdata.valid = true;
+        tdata.ticket_metadata = ticketMetadata;
+        tdata.set_aside = setAsideNFT;
         
         emit txMint(
             destinationAddress, 
@@ -2114,8 +2091,6 @@ contract baseGETNFT_V4 is Initializable, ContextUpgradeable, ERC721Upgradeable {
             orderTime,
             block.timestamp
         );
-        
-        // moveFuelToken(mintGETfee, FUELTOKEN, GETcollector);
 
         return nftIndex;
     }
@@ -2139,7 +2114,7 @@ contract baseGETNFT_V4 is Initializable, ContextUpgradeable, ERC721Upgradeable {
 
         uint256 nftIndex = tokenOfOwnerByIndex(originAddress, 0);
 
-        require(_ticketInfo[nftIndex].valid == false, "secondaryTransfer: ALREADY INVALIDATED");
+        require(_ticket_data[nftIndex].valid == true, "secondaryTransfer: ALREADY INVALIDATED");
         require(ownerOf(nftIndex) == originAddress, "secondaryTransfer: INVALID NFT OWNER");     
         
         relayerTransferFrom(
@@ -2148,24 +2123,15 @@ contract baseGETNFT_V4 is Initializable, ContextUpgradeable, ERC721Upgradeable {
             nftIndex
         );
 
-        METADATA.addNftMetaSecondary(
-            _ticketInfo[nftIndex].event_address, 
-            nftIndex,
-            orderTime,
-            secondaryPrice
-        );
-
         emit txSecondary(
             originAddress, 
             destinationAddress, 
-            _ticketInfo[nftIndex].event_address, 
+            _ticket_data[nftIndex].event_address, 
             nftIndex,
             secondaryPrice,
             orderTime,
             block.timestamp
         );
-
-        // moveFuelToken(transferGETfee, FUELTOKEN, GETcollector);
     
     }
 
@@ -2175,47 +2141,24 @@ contract baseGETNFT_V4 is Initializable, ContextUpgradeable, ERC721Upgradeable {
       virtual 
       view 
       returns (
+          address _eventAddress,
           bool _scanned,
           bool _valid,
-          address _eventAddress,
-          uint256 _price,
-          bytes[] memory _ticketMetadata,
-          bool _setAsideNFT
+          bytes32[] memory _ticketMetadata,
+          bool _setAsideNFT,
+          uint256[] memory _prices_sold
       )
       {
           uint256 nftIndex = tokenOfOwnerByIndex(originAddress, 0);
-          ticketInfo storage tdata = _ticketInfo[nftIndex];
+
+          TicketData storage tdata = _ticket_data[nftIndex];
+          _eventAddress = tdata.event_address;
           _scanned = tdata.scanned;
           _valid = tdata.valid;
-          _eventAddress = tdata.event_address;
-          _price = tdata.price;
           _ticketMetadata = tdata.ticket_metadata;
-          _setAsideNFT = tdata.set_aside_nft;
+          _setAsideNFT = tdata.set_aside;
+          _prices_sold = tdata.prices_sold;
       }
-
-    // function invalidateAddressNFT(address originAddress) public {
-
-    //     require(gAC.hasRole(RELAYER_ROLE, msg.sender), "invalidateAddressNFT: WRONG RELAYER");
-        
-    //     uint256 nftIndex = tokenOfOwnerByIndex(originAddress, 0);
-
-    //     require(_ticketInfo[nftIndex].valid != true, "invalidateAddressNFT - already invalidated");
-    //     _ticketInfo[nftIndex].valid = true;
-
-    //     // emit nftInvalidated(nftIndex, block.timestamp);
-    // }
-
-    // function invalidateAddressNFT(address originAddress) public {
-
-    //     require(gAC.hasRole(RELAYER_ROLE, msg.sender), "invalidateAddressNFT: WRONG RELAYER");
-        
-    //     uint256 nftIndex = tokenOfOwnerByIndex(originAddress, 0);
-
-    //     require(_ticketInfo[nftIndex].valid != true, "invalidateAddressNFT - already invalidated");
-    //     _ticketInfo[nftIndex].valid = true;
-
-    //     // emit nftInvalidated(nftIndex, block.timestamp);
-    // }
 
     function scanNFT(address originAddress) public {
 
@@ -2227,7 +2170,7 @@ contract baseGETNFT_V4 is Initializable, ContextUpgradeable, ERC721Upgradeable {
         //     return; // return function as it will fail otherwise (no nft to scan)
         // }
 
-        require(_ticketInfo[nftIndex].valid == false, "scanNFT: NFT INVALIDATED");
+        require(_ticket_data[nftIndex].valid == true, "scanNFT: NFT INVALIDATED");
 
         // TODO: CHECK IF nftIndex has already been scanned
         // if (_ticketInfo[nftIndex].valid == true) {
@@ -2236,13 +2179,13 @@ contract baseGETNFT_V4 is Initializable, ContextUpgradeable, ERC721Upgradeable {
         //     return; 
         // }
 
-        _ticketInfo[nftIndex].scanned = true;
+        _ticket_data[nftIndex].scanned = true;
 
         // moveFuelToken(transferGETfee, FUELTOKEN, GETcollector);
         
         emit txScan(
             originAddress, 
-            _ticketInfo[nftIndex].event_address, 
+            _ticket_data[nftIndex].event_address, 
             nftIndex, 
             block.timestamp
         );
@@ -2252,10 +2195,10 @@ contract baseGETNFT_V4 is Initializable, ContextUpgradeable, ERC721Upgradeable {
         uint256 nftIndex,
         address ownerAddress
     ) public view returns(bool) {
-        if (_ticketInfo[nftIndex].valid == true) {
+        if (_ticket_data[nftIndex].valid == true) {
             return false;
         }
-        if (_ticketInfo[nftIndex].scanned == false) {
+        if (_ticket_data[nftIndex].scanned == false) {
             return false;
         }
         if (ownerOf(nftIndex) != ownerAddress) {

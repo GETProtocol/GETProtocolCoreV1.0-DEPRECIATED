@@ -156,7 +156,7 @@ interface IGETBase {
         uint256 pricepaid,
         uint256 orderTime,
         string calldata ticketURI,
-        bytes[] calldata ticketMetadata,
+        bytes32[] calldata ticketMetadata,
         bool setAsideNFT
     ) external returns(uint256);
     function relayerTransferFrom(
@@ -171,6 +171,25 @@ contract getEventFinancing is Initializable {
 
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
     bytes32 public constant PROTOCOL_ROLE = keccak256("PROTOCOL_ROLE");
+
+    event fromCollaterizedInventory(
+        uint256 nftIndex,
+        address underwriterAddress,
+        address destinationAddress,
+        uint256 primaryPrice,
+        uint256 orderTime,
+        uint _timestamp
+    );
+
+    event txMintUnderwriter(
+        address underwriterAddress,
+        address eventAddress,
+        uint256 ticketDebt,
+        string ticketURI,
+        uint256 orderTime,
+        uint _timestamp
+    );
+
 
     function initialize_event_financing(
         address _address_gAC
@@ -190,43 +209,44 @@ contract getEventFinancing is Initializable {
         uint256 orderTime,
         uint256 ticketDebt,
         string memory ticketURI,
-        bytes[] memory ticketMetadata
+        bytes32[] memory ticketMetadata
     ) public returns (uint256 nftIndex) {
 
         require(gAC.hasRole(RELAYER_ROLE, msg.sender), "mintToUnderwriter: WRONG RELAYER");
 
         nftIndex = getNFTBase.mintGETNFT(
-            underwriterAddress,
-            eventAddress,
-            ticketDebt,
+            underwriterAddress,  // 'to' address destinationAddress
+            eventAddress, 
+            ticketDebt, // value of ticket in currency
             orderTime,
             ticketURI,
             ticketMetadata,
-            true
+            true // setAsideNFT
+        );
+
+        emit txMintUnderwriter(
+            underwriterAddress,
+            eventAddress,
+            ticketDebt,
+            ticketURI,
+            orderTime,
+            block.timestamp
         );
 
         return nftIndex;
-    
-    // emit txMintUnderwriter(
-    //     underwriterAddress,
-    //     eventAddress,
-    //     ticketDebt,
-    //     ticketURI,
-    //    orderTime,
-    //     block.timestamp
-    // );
 
     }
 
 
     // Moves NFT from collateral contract adres to user 
-    function nftIssuedFromUnderwriter(
+    function collateralizedNFTSold(
         uint256 nftIndex,
         address underwriterAddress,
         address destinationAddress,
         uint256 orderTime,
-        uint primaryPrice
-    ) public returns (bool underwriteSuccess) {
+        uint256 primaryPrice
+    ) public {
+
         // uint256 nftIndex = tokenOfOwnerByIndex(underwriterAddress, 0);
         // require(_ticketInfo[nftIndex].valid == false, "_primaryCollateralTransfer - NFT INVALIDATED");
         // require(ownerOf(nftIndex) == underwriterAddress, "_primaryCollateralTransfer - WRONG UNDERWRITER");     
@@ -244,16 +264,14 @@ contract getEventFinancing is Initializable {
         //     primaryPrice
         // );
 
-        // emit fromCollaterizedInventory(
-        //     underwriterAddress,
-        //     destinationAddress,
-        //     _ticketInfo[nftIndex].eventAddress,
-        //     primaryPrice,
-        //     nftIndex,
-        //     block.timestamp
-        // );
-
-        return true;
+        emit fromCollaterizedInventory(
+            nftIndex,
+            underwriterAddress,
+            destinationAddress,
+            primaryPrice,
+            orderTime,
+            block.timestamp
+        );
 
     }
 }
