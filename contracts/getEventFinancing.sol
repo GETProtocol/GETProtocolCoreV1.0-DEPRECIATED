@@ -6,9 +6,10 @@ import "./utils/ContextUpgradeable.sol";
 import "./interfaces/IwrapGETNFT.sol";
 import "./interfaces/IERC20.sol";
 import "./interfaces/IbaseGETNFT_V4.sol";
-// https://github.com/Defi-Cartel/salmonella
-
-// TODO import metadata inferface
+import "./interfaces/IeventMetadataStorage.sol";
+import "./interfaces/IgetEventFinancing.sol";
+import "./interfaces/IgetNFT_ERC721.sol";
+import "./interfaces/IEconomicsGET.sol";
 
 interface IGETAccessControl {
     function hasRole(bytes32, address) external view returns (bool);
@@ -16,13 +17,18 @@ interface IGETAccessControl {
 
 contract getEventFinancing is Initializable, ContextUpgradeable {
     IGETAccessControl public GET_BOUNCER;
-    IbaseGETNFT_V4 public BASE;
+    IMetadataStorage public METADATA;
+    IEventFinancing public FINANCE;
+    IGET_ERC721 public GET_ERC721;
+    IEconomicsGET public ECONOMICS;
 
+    IbaseGETNFT_V4 public BASE;
     IwrapGETNFT public wrapNFT;
 
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
     bytes32 public constant PROTOCOL_ROLE = keccak256("PROTOCOL_ROLE");
-
+    bytes32 public constant GET_TEAM_MULTISIG = keccak256("GET_TEAM_MULTISIG");
+    bytes32 public constant GET_GOVERNANCE = keccak256("GET_GOVERNANCE");
 
     struct LoanStruct {
         address event_address; // address of event (primary key)

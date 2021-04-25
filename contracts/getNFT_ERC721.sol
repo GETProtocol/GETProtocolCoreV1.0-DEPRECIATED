@@ -12,7 +12,8 @@ contract getNFT_ERC721 is ERC721UpgradeableGET {
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
     bytes32 public constant PROTOCOL_ROLE = keccak256("PROTOCOL_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER");
-    // bytes32 public constant DEFAULT_ADMIN_ROLE = 0x00;
+    bytes32 public constant GET_TEAM_MULTISIG = keccak256("GET_TEAM_MULTISIG");
+    bytes32 public constant GET_GOVERNANCE = keccak256("GET_GOVERNANCE");
 
     event RelayerTransferFrom(
         uint256 nftIndex,

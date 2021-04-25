@@ -311,6 +311,11 @@ abstract contract AccessControlUpgradeable is Initializable, ContextUpgradeable 
 contract AccessControlGET is Initializable, AccessControlUpgradeable {
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
     bytes32 public constant PROTOCOL_CONTRACT = keccak256("PROTOCOL_CONTRACT");
+    bytes32 public constant GET_TEAM_MULTISIG = keccak256("GET_TEAM_MULTISIG");
+    bytes32 public constant GET_GOVERNANCE = keccak256("GET_GOVERNANCE");
+    bytes32 public constant EMPTY_SLOT_1 = keccak256("EMPTY_SLOT_1");
+    bytes32 public constant EMPTY_SLOT_2 = keccak256("EMPTY_SLOT_2");
+    bytes32 public constant EMPTY_SLOT_3 = keccak256("EMPTY_SLOT_3");
 
     function __AccessControlGET_init() public initializer {
         __Context_init_unchained();
