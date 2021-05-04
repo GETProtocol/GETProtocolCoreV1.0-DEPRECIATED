@@ -1,8 +1,8 @@
 pragma solidity ^0.6.2;
 
 import "./interfaces/IERC20.sol";
-import "./SafeMath.sol";
-import "./Address.sol";
+import "./utils/SafeMath.sol";
+import "./utils/Address.sol";
 
 interface IGETAccessControl {
     function hasRole(bytes32, address) external view returns (bool);
@@ -90,8 +90,9 @@ contract financingSaleSimple {
     @param _startTimeAuction time the auction starts 
     @param _fichePrice amount of stables(erc20) per tranche token(erc20)
     @param _totalFicheInventory amount of tranche fiches to be sold
+    // TODO clean up, make this a struct
     */
-    function createAuction( // TODO clean up, make this a struct
+    function createAuction(
                         address _ficheAddress, 
                         address _stableAddress, 
                         address _underwriter,

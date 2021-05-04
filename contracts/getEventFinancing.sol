@@ -11,9 +11,7 @@ import "./interfaces/IgetEventFinancing.sol";
 import "./interfaces/IgetNFT_ERC721.sol";
 import "./interfaces/IEconomicsGET.sol";
 
-interface IGETAccessControl {
-    function hasRole(bytes32, address) external view returns (bool);
-}
+import "./interfaces/IGETAccessControl.sol";
 
 contract getEventFinancing is Initializable, ContextUpgradeable {
     IGETAccessControl public GET_BOUNCER;
@@ -45,50 +43,6 @@ contract getEventFinancing is Initializable, ContextUpgradeable {
         bool finalized_loan; // default = false
     }
 
-    function addLoanInfo(
-        address _eventAddress,
-        address _loanedTokenAddress,
-        address _loanedTokenAmount,
-        address _underwriterAddress,
-        uint256 _collaterizedInvTotal,
-        uint256 _stakedUnderwriter,
-        uint _finalizedBy
-    ) public {
-
-        require(GET_BOUNCER.hasRole(RELAYER_ROLE, _msgSender()), "addLoanInfo: ILLEGAL RELAYER");
-
-        // TODO if publishedLoad == True, revert
-        // TODO if finalizedLoan == True, revert
-        // TODO if finalizedBy > now, revert
-
-        LoanStruct storage ldata = allProposalLoans[_eventAddress];
-        ldata.event_address = _eventAddress;
-        ldata.loaned_token_address = _loanedTokenAddress;
-        ldata.loaned_amount_token = _loanedTokenAmount;
-        ldata.debt_token_address = address(0);
-        ldata.underwriter_address = _underwriterAddress;
-        ldata.colleterized_inv_total = _collaterizedInvTotal;
-        ldata.active_nft_count = 0;
-        ldata.finalized_by_block = 1000; // placeholder
-        ldata.total_staked = _stakedUnderwriter;
-        ldata.finalized_by_block = _finalizedBy;
-        ldata.finalized_loan = false;
-
-        // emit something
-    }
-
-    function publishLoanOffer(
-        address eventAddress
-        ) public {
-
-        require(GET_BOUNCER.hasRole(RELAYER_ROLE, _msgSender()), "addLoanInfo: ILLEGAL RELAYER");
-
-        // require finalized = false
-        // require current count = false
-        // require _collaterizedInvTotal = Balance on eventAddress 
-
-        } 
-
     mapping(address => LoanStruct) public allProposalLoans; // all loans that are still not published (no ERC20, no pool)
     mapping(address => LoanStruct) public allActiveLoans;
     mapping(address => LoanStruct) public allFinalizedLoans;
@@ -99,7 +53,7 @@ contract getEventFinancing is Initializable, ContextUpgradeable {
         address destinationAddress,
         uint256 primaryPrice,
         uint256 orderTime,
-        uint _timestamp
+        uint timestamp
     );
 
     event txMintUnderwriter(
@@ -108,7 +62,7 @@ contract getEventFinancing is Initializable, ContextUpgradeable {
         uint256 ticketDebt,
         string ticketURI,
         uint256 orderTime,
-        uint _timestamp
+        uint timestamp
     );
 
     event BaseConfigured(
@@ -122,12 +76,60 @@ contract getEventFinancing is Initializable, ContextUpgradeable {
         GET_BOUNCER = IGETAccessControl(address_bouncer);
         }
 
+    /**
+     * @dev Throws if called by any account other than the GET Protocol admin account.
+     */
+    modifier onlyRelayer() {
+        require(
+            GET_BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "CALLER_NOT_RELAYER");
+        _;
+    }
+
+    /**
+     * @dev Throws if called by any account other than the GET Protocol admin account.
+     */
+    modifier onlyAdmin() {
+        require(
+            GET_BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "CALLER_NOT_ADMIN");
+        _;
+    }
+
     function configureBase(address baseAddress) public {
-        require(GET_BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "configureBase: WRONG RELAYER");
+        require(GET_BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "configureBase: !RELAYER");
         BASE = IbaseGETNFT_V4(baseAddress);
         emit BaseConfigured(baseAddress, msg.sender);
     }
 
+
+    function addLoanInfo(
+        address eventAddress,
+        address loanedTokenAddress,
+        address loanedTokenAmount,
+        address underwriterAddress,
+        uint256 collaterizedInvTotal,
+        uint256 stakedUnderwriter,
+        uint finalizedBy
+    ) public {
+
+        require(GET_BOUNCER.hasRole(RELAYER_ROLE, _msgSender()), "addLoanInfo: ILLEGAL RELAYER");
+
+        // TODO if publishedLoad == True, revert
+        // TODO if finalizedLoan == True, revert
+        // TODO if finalizedBy > now, revert
+
+        LoanStruct storage ldata = allProposalLoans[eventAddress];
+        ldata.event_address = eventAddress;
+        ldata.loaned_token_address = loanedTokenAddress;
+        ldata.loaned_amount_token = loanedTokenAmount;
+        ldata.debt_token_address = address(0);
+        ldata.underwriter_address = underwriterAddress;
+        ldata.colleterized_inv_total = collaterizedInvTotal;
+        ldata.active_nft_count = 0;
+        ldata.finalized_by_block = 1000; // placeholder
+        ldata.total_staked = stakedUnderwriter;
+        ldata.finalized_by_block = finalizedBy;
+        ldata.finalized_loan = false;
+    }
 
     /**
     @dev mints getNFT to underwriterAddress
@@ -140,12 +142,11 @@ contract getEventFinancing is Initializable, ContextUpgradeable {
         address eventAddress,
         uint256 orderTime,
         uint256 ticketDebt,
-        string memory ticketURI,
-        bytes32[] memory ticketMetadata
-    ) public returns (uint256 nftIndex) {
+        string calldata ticketURI,
+        bytes32[] calldata ticketMetadata
+    ) external onlyRelayer returns (uint256 nftIndex) {
 
         // TODO Should only be callable by relayer of an underwriter
-        require(GET_BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "mintToUnderwriter: WRONG RELAYER");
 
         nftIndex = BASE.relayColleterizedMint(
             eventAddress,  // 'to' address destinationAddress
@@ -180,9 +181,7 @@ contract getEventFinancing is Initializable, ContextUpgradeable {
         address destinationAddress,
         uint256 orderTime,
         uint256 primaryPrice
-    ) public {
-
-        require(GET_BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "mintToUnderwriter: WRONG RELAYER");
+    ) external onlyRelayer {
 
         // TODO insert logic that creates debt for underwriter
 
