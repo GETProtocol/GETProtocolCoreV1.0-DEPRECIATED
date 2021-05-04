@@ -1,18 +1,18 @@
 pragma solidity ^0.6.2;
 pragma experimental ABIEncoderV2;
 
-interface IGETAccessControl {
-    function hasRole(bytes32, address) external view returns (bool);
-}
-
 import "./utils/Initializable.sol";
 import "./utils/ContextUpgradeable.sol";
 import "./utils/CountersUpgradeable.sol";
+
+import "./utils/SafeMathUpgradeable.sol";
 
 import "./interfaces/IeventMetadataStorage.sol";
 import "./interfaces/IgetEventFinancing.sol";
 import "./interfaces/IgetNFT_ERC721.sol";
 import "./interfaces/IEconomicsGET.sol";
+
+import "./interfaces/IGETAccessControl.sol";
 
 contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
     IGETAccessControl public GET_BOUNCER;
@@ -20,6 +20,8 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
     IEventFinancing public FINANCE;
     IGET_ERC721 public GET_ERC721;
     IEconomicsGET public ECONOMICS;
+
+    using SafeMathUpgradeable for uint256;
     
     function initialize_base(
         address address_bouncer, 
@@ -33,6 +35,24 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
             FINANCE = IEventFinancing(address_finance);
             GET_ERC721 = IGET_ERC721(address_erc721);
             ECONOMICS = IEconomicsGET(address_economics);
+    }
+
+    /**
+     * @dev Throws if called by any account other than the GET Protocol admin account.
+     */
+    modifier onlyRelayer() {
+        require(
+            GET_BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "CALLER_NOT_RELAYER");
+        _;
+    }
+
+    /**
+     * @dev Throws if called by any account other than the GET Protocol admin account.
+     */
+    modifier onlyAdmin() {
+        require(
+            GET_BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "CALLER_NOT_ADMIN");
+        _;
     }
 
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
@@ -50,6 +70,14 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
         bool scanned;
         bool valid;
     }
+
+    event ConfigurationChanged(
+        address addressBouncer, 
+        address addressMetadata, 
+        address addressFinance,
+        address addressERC721,
+        address addressEconomics
+    );
 
     event primarySaleMint(
         uint256 indexed nftIndex,
@@ -102,14 +130,14 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
     event nftMinted(
         uint256 indexed nftIndex,
         address indexed destinationAddress, 
-        uint _timestamp
+        uint timestamp
     );
 
     event nftTokenURIEdited(
         uint256 indexed nftIndex,
         uint256 indexed getUsed,
-        string _netTokenURI,
-        uint _timestamp
+        string netTokenURI,
+        uint timestamp
     );
 
     event illegalScan(
@@ -134,11 +162,9 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
         address eventAddress, 
         uint256 primaryPrice,
         uint256 orderTime,
-        string memory ticketURI, 
-        bytes32[] memory ticketMetadata
-    ) public returns (uint256 nftIndex) {
-
-        require(GET_BOUNCER.hasRole(RELAYER_ROLE, _msgSender()), "primarySale: INCORRECT RELAYER");
+        string calldata ticketURI, 
+        bytes32[] calldata ticketMetadata
+    ) external onlyRelayer returns (uint256 nftIndex) {
 
         bool _state = false;
         _state = METADATA.isInventoryUnderwritten(eventAddress);
@@ -216,7 +242,6 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
 
     /**
     @dev function relays mint transaction from FINANCE contract to internal function _mintGETNFT
-    @notice this as to prevent a relayer ever calling directly, going around colleterization rules 
     @param destinationAddress EOA address of the event that will receive getNFT for colleterization
     @param eventAddress primary key of event (EOA account)
     @param pricepaid TODO
@@ -230,13 +255,10 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
         address eventAddress, 
         uint256 pricepaid,
         uint256 orderTime,
-        string memory ticketURI,
-        bytes32[] memory ticketMetadata,
+        string calldata ticketURI,
+        bytes32[] calldata ticketMetadata,
         bool setAsideNFT
-    ) public returns (uint256 nftIndex) {
-
-        // check if FINANCE contract is allowed to mint getNFT
-        require(GET_BOUNCER.hasRole(RELAYER_ROLE, _msgSender()), "relayColleterizedMint: INCORRECT RELAYER");
+    ) external onlyRelayer returns (uint256 nftIndex) {
 
         nftIndex = _mintGETNFT(
             destinationAddress,
@@ -249,6 +271,28 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
         );
     }
     
+    function changeConfiguration(
+        address newAddressBouncer,
+        address newAddressMetadata,
+        address newAddressFinance,
+        address newAddressERC721,
+        address newAddressEconomics
+    ) external onlyAdmin {
+        
+        GET_BOUNCER = IGETAccessControl(newAddressBouncer);
+        METADATA = IMetadataStorage(newAddressMetadata);
+        FINANCE = IEventFinancing(newAddressFinance);
+        GET_ERC721 = IGET_ERC721(newAddressERC721);
+        ECONOMICS = IEconomicsGET(newAddressEconomics);
+
+        emit ConfigurationChanged(
+            newAddressBouncer,
+            newAddressMetadata,
+            newAddressFinance,
+            newAddressERC721,
+            newAddressEconomics
+        );
+    }
 
     /**
     @dev mints getNFT
@@ -297,20 +341,23 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
     @dev edits URI of getNFT
     @notice select getNFT by address TODO POSSIBLY REMOVE/RETIRE
     @param originAddress TODO
-    @param _newTokenURI TODO
+    @param newTokenURI TODO
     */
     function editTokenURIbyAddress(
         address originAddress,
-        string memory _newTokenURI
-        ) public {
+        string calldata newTokenURI
+        ) external onlyRelayer {
+            
             uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0);
+            
             require(nftIndex >= 0, "editTokenURI !nftIndex");
-            GET_ERC721.editTokenURI(nftIndex, _newTokenURI);
+            
+            GET_ERC721.editTokenURI(nftIndex, newTokenURI);
             
             emit nftTokenURIEdited(
                 nftIndex,
                 10000,
-                _newTokenURI,
+                newTokenURI,
                 block.timestamp
             );
         }
@@ -319,19 +366,21 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
     @dev edits URI of getNFT
     @notice select getNFT by the nftIndex
     @param nftIndex TODO
-    @param _newTokenURI TODO
+    @param newTokenURI TODO
     */
     function editTokenURIbyIndex(
         uint256 nftIndex,
-        string memory _newTokenURI
-        ) public {
+        string calldata newTokenURI
+        ) external onlyRelayer {
+
             require(nftIndex >= 0, "editTokenURI !nftIndex");
-            GET_ERC721.editTokenURI(nftIndex, _newTokenURI);
+            
+            GET_ERC721.editTokenURI(nftIndex, newTokenURI);
             
             emit nftTokenURIEdited(
                 nftIndex,
                 10000,
-                _newTokenURI,
+                newTokenURI,
                 block.timestamp
             );
         }
@@ -341,14 +390,14 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
         address originAddress, 
         address destinationAddress,
         uint256 orderTime,
-        uint256 secondaryPrice) public {
-
-        require(GET_BOUNCER.hasRole(RELAYER_ROLE, _msgSender()), "secondaryTransfer: INCORRECT RELAYER");
+        uint256 secondaryPrice) external onlyRelayer {
 
         uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0);
+        
         require(nftIndex >= 0, "scanNFT !nftIndex");
 
         require(_ticket_data[nftIndex].valid == true, "secondaryTransfer: ALREADY INVALIDATED");
+
         require(GET_ERC721.ownerOf(nftIndex) == originAddress, "secondaryTransfer: INVALID NFT OWNER");     
         
         GET_ERC721.relayerTransferFrom(
@@ -359,7 +408,7 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
 
         emit secondarySale(
             nftIndex,
-            10000, // placeholder GET usage
+            10000,
             destinationAddress, 
             _ticket_data[nftIndex].event_address, 
             secondaryPrice,
@@ -371,20 +420,21 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
     function scanNFT(
         address originAddress, 
         uint256 orderTime
-        ) public returns(bool) {
-
+        ) external onlyRelayer returns(bool) {
+        
         uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0);
         require(nftIndex >= 0, "scanNFT !nftIndex");
 
         require(_ticket_data[nftIndex].valid == true, "scanNFT: NFT INVALIDATED");
 
         if (_ticket_data[nftIndex].scanned == true) {
-            // The getNFT has already been scanned. It will be allowed, but emmitted to the nodes.
+            // The getNFT has already been scanned
             emit illegalScan(
                 nftIndex,
                 1000,
                 orderTime
             );
+
             return false; 
         }
 
@@ -392,7 +442,7 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
 
         emit ticketScanned(
             nftIndex,
-            10000, // placeholder GET usage
+            10000,
             orderTime
         );
 
@@ -401,9 +451,9 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
 
     function invalidateAddressNFT(
         address originAddress, 
-        uint256 orderTime) public {
+        uint256 orderTime) external onlyRelayer {
 
-        require(GET_BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "invalidateAddressNFT: WRONG RELAYER");
+        // require(GET_BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "invalidateAddressNFT: !RELAYER");
         
         uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0);
         require(nftIndex >= 0, "invalidateAddressNFT !nftIndex");
@@ -413,7 +463,7 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
 
         emit ticketInvalidated(
             nftIndex, 
-            10000, // getused placeholder
+            10000,
             originAddress,
             orderTime
         );
@@ -422,11 +472,9 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
     function claimgetNFT(
         address originAddress, 
         address externalAddress,
-        uint256 orderTime) public {
+        uint256 orderTime) external onlyRelayer {
 
-        require(GET_BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "claimgetNFT: WRONG RELAYER");
-
-        require(GET_ERC721.balanceOf(originAddress) != 0, "claimgetNFT: NO BALANCE");
+        require(GET_ERC721.balanceOf(originAddress) != 0, "claimgetNFT: NO NFT BALANCE");
 
         uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0); // fetch the index of the NFT
         require(nftIndex >= 0, "claimgetNFT !nftIndex");
@@ -442,7 +490,6 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
             nftIndex
         );
 
-        // emit event of successfull 
         emit nftClaimed(
             nftIndex,
             10000, // get usage placeholder
@@ -450,7 +497,7 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
             orderTime
         );
 
-        }
+    }
 
     function isNFTClaimable(
         uint256 nftIndex,
@@ -465,14 +512,15 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
         if (GET_ERC721.ownerOf(nftIndex) != ownerAddress) {
             return false;
         }
-        return true;
+        else {
+            return true;
+        }
+        
     }
 
-    function ticketMetadata(address originAddress)
-      public 
-      virtual 
-      view 
-      returns (
+    function ticketMetadata(
+        address originAddress)
+      public virtual view returns (
           address _eventAddress,
           bool _scanned,
           bool _valid,
@@ -484,7 +532,6 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
           uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0);
           require(nftIndex >= 0, "scanNFT !nftIndex");
           
-
           TicketData storage tdata = _ticket_data[nftIndex];
           _eventAddress = tdata.event_address;
           _scanned = tdata.scanned;
