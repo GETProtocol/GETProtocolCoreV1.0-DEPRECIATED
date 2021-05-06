@@ -1,13 +1,18 @@
 pragma solidity ^0.6.2;
 
 interface IEventFinancing {
-    function mintSetAsideNFTTicket(
-        address underwriterAddress, 
+    // function mintColleterizedNFTTicket(
+    //     address underwriterAddress, 
+    //     address eventAddress,
+    //     uint256 orderTime,
+    //     uint256 ticketDebt,
+    //     string calldata ticketURI,
+    //     bytes32[] calldata ticketMetadata
+    // ) external;
+
+    function registerCollaterization(
         address eventAddress,
-        uint256 orderTime,
-        uint256 ticketDebt,
-        string calldata ticketURI,
-        bytes32[] calldata ticketMetadata
+        uint256 nftIndex
     ) external;
 
     function collateralizedNFTSold(
@@ -39,6 +44,11 @@ interface IEventFinancing {
     event BaseConfigured(
         address baseAddress,
         address requester
+    );
+
+    event ticketCollaterized(
+        uint256 nftIndex,
+        address eventAddress
     );
 
 } 

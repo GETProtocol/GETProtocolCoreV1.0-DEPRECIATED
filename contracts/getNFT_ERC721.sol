@@ -10,9 +10,8 @@ interface IGETAccessControl {
 contract getNFT_ERC721 is ERC721UpgradeableGET {
     IGETAccessControl public GET_BOUNCER;
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
-    bytes32 public constant PROTOCOL_ROLE = keccak256("PROTOCOL_ROLE");
-    bytes32 public constant MINTER_ROLE = keccak256("MINTER");
-    bytes32 public constant GET_TEAM_MULTISIG = keccak256("GET_TEAM_MULTISIG");
+    bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
+    bytes32 public constant GET_ADMIN = keccak256("GET_ADMIN");
     bytes32 public constant GET_GOVERNANCE = keccak256("GET_GOVERNANCE");
 
     event RelayerTransferFrom(
@@ -52,18 +51,17 @@ contract getNFT_ERC721 is ERC721UpgradeableGET {
     function mintERC721(
         address destinationAddress,
         string memory ticketURI
-    ) public returns (uint256 nftIndex) {
+    ) public returns (uint256 nftIndexE) {
 
         // TODO Change to MINTER
-        require(GET_BOUNCER.hasRole(RELAYER_ROLE, _msgSender()), "mintERC721: ILLEGAL RELAYER");
+        require(GET_BOUNCER.hasRole(FACTORY_ROLE, _msgSender()), "NOT_FACTORY");
 
-        nftIndex = _tokenIdTracker.current(); 
-        _mint(destinationAddress, nftIndex);
+        nftIndexE = _tokenIdTracker.current(); 
+        _mint(destinationAddress, nftIndexE);
+        _setTokenURI(nftIndexE, ticketURI);
         _tokenIdTracker.increment();
 
-        _setTokenURI(nftIndex, ticketURI);
-
-        return nftIndex;
+        return nftIndexE;
     }
 
     /**  
@@ -78,7 +76,7 @@ contract getNFT_ERC721 is ERC721UpgradeableGET {
         address destinationAddress, 
         uint256 nftIndex) public {
 
-        require(GET_BOUNCER.hasRole(RELAYER_ROLE, _msgSender()), "relayerTransferFrom: ILLEGAL RELAYER");
+        require(GET_BOUNCER.hasRole(FACTORY_ROLE, _msgSender()), "NOT_FACTORY");
 
         _beforeTokenTransfer(originAddress, destinationAddress, nftIndex);
 
@@ -101,7 +99,7 @@ contract getNFT_ERC721 is ERC721UpgradeableGET {
         uint256 nftIndex,
         string memory _newTokenURI
     ) public {
-        require(GET_BOUNCER.hasRole(RELAYER_ROLE, _msgSender()), "editTokenURI: ILLEGAL RELAYER");
+        require(GET_BOUNCER.hasRole(FACTORY_ROLE, _msgSender()), "NOT_FACTORY");
         _setTokenURI(nftIndex, _newTokenURI);
 
         emit TokenURIEdited(

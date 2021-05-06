@@ -25,7 +25,7 @@ contract economicsGET is Initializable {
     
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
     bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
-    bytes32 public constant GET_TEAM_MULTISIG = keccak256("GET_TEAM_MULTISIG");
+    bytes32 public constant GET_ADMIN = keccak256("GET_ADMIN");
     bytes32 public constant GET_GOVERNANCE = keccak256("GET_GOVERNANCE");
 
     address public treasuryAddress;
@@ -48,6 +48,15 @@ contract economicsGET is Initializable {
         bool isConfigured;
     }
 
+    /** Example config
+    relayerAddress: "0x123", This is the address the ticketeer is identified by.
+    timestampStarted: 2311222, Blockheight start of config
+    timestampEnded: none, Blockheight end of config
+    treasuryL: [100,100,100,100]
+    burnL: [100,100,100,100]
+    
+     */
+
     // mapping from relayer address to configs (that are active)
     mapping(address => EconomicsConfig) public allConfigs;
 
@@ -66,9 +75,7 @@ contract economicsGET is Initializable {
     );
 
     event configChanged(
-        address adminAddress,
-        address relayerAddress,
-        uint256 timestamp
+        address relayerAddress
     );
 
     event feeToTreasury(
@@ -83,8 +90,7 @@ contract economicsGET is Initializable {
 
     event relayerToppedUp(
         address relayerAddress,
-        uint256 amountToppedUp,
-        uint256 timeStamp
+        uint256 amountToppedUp
     );
 
     event allFuelPulled(
@@ -98,7 +104,16 @@ contract economicsGET is Initializable {
      */
     modifier onlyAdmin() {
         require(
-            GET_BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "CALLER_NOT_ADMIN");
+            GET_BOUNCER.hasRole(GET_ADMIN, msg.sender), "CALLER_NOT_ADMIN");
+        _;
+    }
+
+    /**
+     * @dev Throws if called by any account other than the GET Protocol admin account.
+     */
+    modifier onlyRelayer() {
+        require(
+            GET_BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "CALLER_NOT_RELAYER");
         _;
     }
 
@@ -110,6 +125,17 @@ contract economicsGET is Initializable {
             GET_BOUNCER.hasRole(GET_GOVERNANCE, msg.sender), "CALLER_NOT_GOVERNANCE");
         _;
     }
+
+
+    /**
+     * @dev Throws if called by any account other than a GET Protocol governance address.
+     */
+    modifier onlyFactory() {
+        require(
+            GET_BOUNCER.hasRole(FACTORY_ROLE, msg.sender), "CALLER_NOT_FACTORY");
+        _;
+    }
+
 
     /**
      * @dev Throws if called by a relayer/ticketeer that has not been registered.
@@ -125,10 +151,9 @@ contract economicsGET is Initializable {
         address fueltoken_address
         ) public initializer {
             GET_BOUNCER = IGETAccessControl(address_bouncer);
-            treasuryAddress = 0x0000000000000000000000000000000000000000;
-            burnAddress = 0x0000000000000000000000000000000000000000;
+            treasuryAddress = 0x3EaE56964B8CE1Cb52f395444c0f89577Bd6bB49;
+            burnAddress = 0x3EaE56964B8CE1Cb52f395444c0f89577Bd6bB49;
             FUELTOKEN = IERC20(fueltoken_address);
-
         }
     
 
@@ -142,19 +167,10 @@ contract economicsGET is Initializable {
         FUELTOKEN = IERC20(newFuelToken);
     }
 
-
     function setEconomicsConfig(
         address relayerAddress,
         EconomicsConfig memory EconomicsConfigNew
     ) public onlyAdmin {
-
-        // check if relayer had a previously set economic config
-        // if so, the config that is replaced needs to be stored
-        // otherwise it will be lost and this will make tracking usage harder for those analysing
-        if (allConfigs[relayerAddress].isConfigured == true) {  // if storage occupied
-            // add the old econmic config to storage
-            oldConfigs.push(allConfigs[relayerAddress]);
-        }
 
         // store config in mapping
         allConfigs[relayerAddress] = EconomicsConfigNew;
@@ -164,143 +180,156 @@ contract economicsGET is Initializable {
         allConfigs[relayerAddress].isConfigured = true;
 
         emit configChanged(
-            msg.sender,
-            relayerAddress,
-            block.timestamp
+            relayerAddress
         );
 
     }
 
     function balanceOfRelayer(
         address relayerAddress
-    ) public view returns (uint256 balanceRelayer) 
+    ) public view returns (uint256) 
     {
-        balanceRelayer = relayerBalance[relayerAddress];
+        return relayerBalance[relayerAddress];
     }
 
     function balancerOfCaller() public view
-    returns (uint256 balanceCaller) 
+    returns (uint256) 
         {
-            balanceCaller = relayerBalance[msg.sender];
+            return relayerBalance[msg.sender];
         }
     
     // TOD) check if this works / can work
     function checkIfRelayer(
         address relayerAddress
-    ) public returns (bool isRelayer) 
+    ) public view returns (bool) 
     {
-        isRelayer = relayerRegistry[relayerAddress];
+        return relayerRegistry[relayerAddress];
     }
     
 
     /**
-    @param amountTreasury TODO
-    @param amountBurn TODO
+    @param amountToTreasury TODO
+    @param amountToBurn TODO
     @param relayerA TODO
      */
-    function transferFuelTo(
-        uint256 amountTreasury,
-        uint256 amountBurn,
+    function _transferFuelTo(
+        uint256 amountToTreasury,
+        uint256 amountToBurn,
         address relayerA
-    ) public returns (bool) {
+    ) internal returns (bool) {
 
         uint256 _balance = relayerBalance[relayerA];
-        
        
         require( // check if balance sufficient
-            (amountTreasury + amountBurn) <= _balance,
-        "chargePrimaryMint balance low"
+            (amountToTreasury + amountToBurn) <= _balance,
+        "0 chargePrimaryMint balance low"
         );
 
-        if (amountTreasury > 0) {
+        if (amountToTreasury > 0) {
             
             // deduct from balance
-            relayerBalance[relayerA] =- amountTreasury;
+            relayerBalance[relayerA] =- amountToTreasury;
 
             require( // transfer to treasury
-            FUELTOKEN.transferFrom(
-                address(this),
+            FUELTOKEN.transfer(
                 treasuryAddress,
-                amountTreasury), // TODO or return false?
+                amountToTreasury), // TODO or return false?
                 "chargePrimaryMint _feeT FAIL"
             );
 
+
             emit feeToTreasury(
-                amountTreasury,
+                amountToTreasury,
                 relayerBalance[relayerA]
             );
         }
 
-        if (amountBurn > 0) {
+        if (amountToBurn > 0) {
 
             // deduct from balance 
-            relayerBalance[relayerA] =- amountBurn;
+            relayerBalance[relayerA] =- amountToBurn;
 
             require( // transfer to treasury
-            FUELTOKEN.transferFrom(
-                address(this),
+            FUELTOKEN.transfer(
                 burnAddress,
-                amountBurn),
+                amountToBurn),
                 "chargePrimaryMint _feeB FAIL"
             );
 
+
             emit feeToBurn(
-                amountBurn,
+                amountToBurn,
                 relayerBalance[relayerA]
             );
 
         }
-
-        // TODO ADD require statement / logic
         return true;
     }
 
+
+    function checkFeeForStatechange(
+        address relayerAddress,
+        uint256 statechangeInt
+        ) external view returns (uint256) 
+        {
+            return allConfigs[relayerAddress].treasuryL[statechangeInt];
+        }
+
+
     /**
     @param relayerAddress TODO
+    @param statechangeInt TODO
      */
-    function chargePrimaryMint(
-        address relayerAddress
-        ) external returns (bool) 
+    function chargeForStatechangeList(
+        address relayerAddress,
+        uint256 statechangeInt
+        ) external onlyFactory returns (uint256[2] memory) 
         { // TODO check probably external
-        
-            // check if call is coming from protocol contract
-            require(GET_BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "chargePrimaryMint: !FACTORY");
 
             // how much GET needs to be sent to the treasury
-            uint256 _feeT = allConfigs[relayerAddress].treasuryL[1];
+            uint256 _feeT = allConfigs[relayerAddress].treasuryL[statechangeInt];
             // how much GET needs to be sent to the burn
-            uint256 _feeB = allConfigs[relayerAddress].burnL[1];
+            uint256 _feeB = allConfigs[relayerAddress].burnL[statechangeInt];
 
-            bool _result = transferFuelTo(
+            require(
+                _transferFuelTo(
+                    _feeT,
+                    _feeB,
+                    relayerAddress),
+                    "GET_FUEL_FAILED"
+            );
+
+            return [_feeT,_feeB];
+    } 
+
+    /**
+    @param relayerAddress TODO
+    @param statechangeInt TODO
+     */
+    function chargeForStatechange(
+        address relayerAddress,
+        uint256 statechangeInt
+        ) external onlyFactory returns (bool) 
+        { // TODO check probably external
+
+            // how much GET needs to be sent to the treasury
+            uint256 _feeT = allConfigs[relayerAddress].treasuryL[statechangeInt];
+            // how much GET needs to be sent to the burn
+            uint256 _feeB = allConfigs[relayerAddress].burnL[statechangeInt];
+
+            bool _result = _transferFuelTo(
                 _feeT,
                 _feeB,
-                msg.sender
+                relayerAddress
+            );
+
+            require( // TODO check if makes sense
+                _result == true, 
+                "fees failed poor person"
             );
 
             return _result;
-    }
-
-    function chargeSecondaryMint(
-        address relayerAddress
-        ) external returns (bool) 
-        { // TODO check probably external
-        
-            // check if call is coming from protocol contract
-            require(GET_BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "chargeSecondaryMint: !FACTORY");
-
-            // how much GET needs to be sent to the treasury
-            uint256 _feeT = allConfigs[relayerAddress].treasuryL[1];
-            // how much GET needs to be sent to the burn
-            uint256 _feeB = allConfigs[relayerAddress].burnL[1];
-
-            bool _result = transferFuelTo(
-                _feeT,
-                _feeB,
-                msg.sender
-            );
-
-            return _result;
-    }
+    }       
 
     // ticketeer adds GET 
     /** function that tops up the relayer account
@@ -313,14 +342,14 @@ contract economicsGET is Initializable {
     function topUpGet(
         address relayerAddress,
         uint256 amountTopped
-    ) public {
+    ) public onlyRelayer {
 
         // TODO maybe add check if msg.sender is real/known/registered
 
         // check if msg.sender has allowed contract to spend/send tokens
         require(
             FUELTOKEN.allowance(
-                msg.sender, 
+                relayerAddress, 
                 address(this)) >= amountTopped,
             "topUpGet - ALLOWANCE FAILED - ALLOW CONTRACT FIRST!"
         );
@@ -328,19 +357,19 @@ contract economicsGET is Initializable {
         // tranfer tokens from msg.sender to contract
         require(
             FUELTOKEN.transferFrom(
-                msg.sender, 
+                relayerAddress, 
                 address(this),
                 amountTopped),
             "topUpGet - TRANSFERFROM STABLES FAILED"
         );
 
+
         // add the sent tokens to the balance
-        relayerBalance[relayerAddress] += amountTopped;
+        relayerBalance[relayerAddress] = amountTopped;
 
         emit relayerToppedUp(
             relayerAddress,
-            amountTopped,
-            block.timestamp
+            amountTopped
         );
     }
 
@@ -372,103 +401,7 @@ contract economicsGET is Initializable {
     ) public view returns (uint256 _balance) 
     {
         // TODO add check if relayer exists
-
         _balance = relayerBalance[relayerAddress];
     }
 
-    // function feeForTypeOLD(
-    //     address _relayerFromA,
-    //     uint256 _statechangeType,
-    //     uint256 _type        
-    // ) public view returns (uint256 _feeU) 
-    // {   
-    //     require (
-    //         _type == 0 || _type == 1,
-    //         "feeForType - invalid _type value"
-    //     );
-
-    //     // TODO check if you can pick by this
-    //     _feeU =  allConfigs[_relayerFromA].feeConfig[_type];
-    // }
-
-    // function feeForStatechangeListOLD(
-    //     address _relayerFromA,
-    //     uint256 _statechangeType
-    // ) public view returns (uint256[2] memory)
-    // {
-    //     FeeStruct memory _feeS = allConfigs[_relayerFromA].feeConfig;
-    //     return ([_feeS.treasuryFee, _feeS.burnFee]);
-    // } 
-
-        // uint256[] treasuryL;
-        // uint256[] burnL;
-
-    // /** Function returns the amount of GET fee that are charged
-    // @param _relayerFromA TODO
-    // @param _statechangeType TODO
-    //  */
-    // function feeForStatechangeList(
-    //     address _relayerFromA,
-    //     uint256 _statechangeType
-    // ) public view returns (uint256[2] memory)
-    // {
-    //     FeeStruct memory _feeS = allConfigs[_relayerFromA].feeConfig;
-    //     return ([_feeS.treasuryFee, _feeS.burnFee]);
-    // } 
-
 }
-
-
-// library economicConfigrationLib {
-
-//     /**
-//     struct defines how much GET is sent from relayer to economcs per type of contract interaction
-//     - treasuryFee amount of wei GET that is sent to primary
-//     [0 setAsideMint, 1 primarySaleMint, 2 secondarySale, 3 Scan, 4 Claim, 6 CreateEvent, 7 ModifyEvent]
-//     - burnFee amount of wei GET that is sent to burn adres
-//     [0 setAsideMint, 1 primarySaleMint, 2 secondarySale, 3 Scan, 4 Claim, 6 CreateEvent, 7 ModifyEvent]
-//     */
-//     // struct FeeStruct {
-//     //     uint256 treasuryFee;
-//     //     uint256 burnFee;
-//     // }
-
-//     // struct EconomicsConfig {
-//     //     address relayerAddress; // address of the ticketeer/integrator
-//     //     uint timestampStarted; // blockheight of when the config was set
-//     //     uint timestampEnded; // is 0 if economics confis is still active
-//     //     mapping (uint256 => FeeStruct) feeConfig;
-//     //     bool isConfigured;
-//     // }
-
-
-
-//     function setEconomicsConfig(
-//         address relayerAddress,
-//         EconomicsConfig memory EconomicsConfigNew
-//     ) public onlyAdmin {
-
-//         // check if relayer had a previously set economic config
-//         // if so, the config that is replaced needs to be stored
-//         // otherwise it will be lost and this will make tracking usage harder for those analysing
-//         if (allConfigs[relayerAddress].isConfigured == true) {  // if storage occupied
-//             // add the old econmic config to storage
-//             oldConfigs.push(allConfigs[relayerAddress]);
-//         }
-
-//         // store config in mapping
-//         allConfigs[relayerAddress] = EconomicsConfigNew;
-
-//         // set the blockheight of starting block
-//         allConfigs[relayerAddress].timestampStarted = block.timestamp;
-//         allConfigs[relayerAddress].isConfigured = true;
-
-//         emit configChanged(
-//             msg.sender,
-//             relayerAddress,
-//             block.timestamp
-//         );
-
-//     }
-
-// }

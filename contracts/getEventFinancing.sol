@@ -5,7 +5,7 @@ import "./utils/Initializable.sol";
 import "./utils/ContextUpgradeable.sol";
 import "./interfaces/IwrapGETNFT.sol";
 import "./interfaces/IERC20.sol";
-import "./interfaces/IbaseGETNFT_V4.sol";
+import "./interfaces/IbaseGETNFT.sol";
 import "./interfaces/IeventMetadataStorage.sol";
 import "./interfaces/IgetEventFinancing.sol";
 import "./interfaces/IgetNFT_ERC721.sol";
@@ -20,12 +20,12 @@ contract getEventFinancing is Initializable, ContextUpgradeable {
     IGET_ERC721 public GET_ERC721;
     IEconomicsGET public ECONOMICS;
 
-    IbaseGETNFT_V4 public BASE;
+    IbaseGETNFT public BASE;
     IwrapGETNFT public wrapNFT;
 
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
-    bytes32 public constant PROTOCOL_ROLE = keccak256("PROTOCOL_ROLE");
-    bytes32 public constant GET_TEAM_MULTISIG = keccak256("GET_TEAM_MULTISIG");
+    bytes32 private constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
+    bytes32 public constant GET_ADMIN = keccak256("GET_ADMIN");
     bytes32 public constant GET_GOVERNANCE = keccak256("GET_GOVERNANCE");
 
     struct LoanStruct {
@@ -65,6 +65,11 @@ contract getEventFinancing is Initializable, ContextUpgradeable {
         uint timestamp
     );
 
+    event ticketCollaterized(
+        uint256 nftIndex,
+        address eventAddress
+    );
+
     event BaseConfigured(
         address baseAddress,
         address requester
@@ -94,10 +99,26 @@ contract getEventFinancing is Initializable, ContextUpgradeable {
         _;
     }
 
+    /**
+     * @dev Throws if called by any account other than a GET Protocol governance address.
+     */
+    modifier onlyFactory() {
+        require(
+            GET_BOUNCER.hasRole(FACTORY_ROLE, msg.sender), "CALLER_NOT_FACTORY");
+        _;
+    }
+
+
+
     function configureBase(address baseAddress) public {
+
         require(GET_BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "configureBase: !RELAYER");
-        BASE = IbaseGETNFT_V4(baseAddress);
-        emit BaseConfigured(baseAddress, msg.sender);
+
+        BASE = IbaseGETNFT(baseAddress);
+
+        emit BaseConfigured(
+            baseAddress, 
+            msg.sender);
     }
 
 
@@ -130,6 +151,24 @@ contract getEventFinancing is Initializable, ContextUpgradeable {
         ldata.finalized_by_block = finalizedBy;
         ldata.finalized_loan = false;
     }
+
+    /**
+    @param eventAddress TODO
+    @param nftIndex TODO
+     */
+    function registerCollaterization(
+        address eventAddress,
+        uint256 nftIndex
+    ) external onlyFactory {
+
+        emit ticketCollaterized(
+            nftIndex,
+            eventAddress
+        );
+    }
+
+
+
 
     /**
     @dev mints getNFT to underwriterAddress

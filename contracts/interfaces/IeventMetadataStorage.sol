@@ -2,17 +2,32 @@ pragma solidity ^0.6.2;
 
 interface IMetadataStorage {
 
+    function registerEvent(
+      address eventAddress,
+      address integratorAccountPublicKeyHash,
+      string calldata eventName, 
+      string calldata shopUrl,
+      string calldata imageUrl,
+      bytes32[4] calldata eventMeta, // -> [bytes32 latitude, bytes32 longitude, bytes32  currency, bytes32 ticketeerName]
+      uint256[2] calldata eventTimes, // -> [uin256 startingTime, uint256 endingTime]
+      bool setAside, // -> false = default
+      // bytes[] memory extraData
+      bytes32[] calldata extraData,
+      bool isPrivate
+      ) external;
+
+
     function isInventoryUnderwritten(
         address eventAddress
-    ) external view returns(
-        bool isUnderwritten
-    );
+    ) external view returns(bool);
 
     function getUnderwriterAddress(
         address eventAddress
-    ) external view returns(
-        address underwriterAddress
-    );
+    ) external view returns(address);
+
+    function doesEventExist(
+      address eventAddress
+    ) external view returns(bool);
 
     event newEventRegistered(
       address indexed eventAddress, 
