@@ -2,7 +2,6 @@ pragma solidity ^0.6.2;
 pragma experimental ABIEncoderV2;
 
 import "./utils/Initializable.sol";
-
 import "./utils/SafeMathUpgradeable.sol";
 
 import "./interfaces/IGETAccessControl.sol";
@@ -28,6 +27,7 @@ contract eventMetadataStorage is Initializable {
         // bytes[] extra_data;
         bytes32[] extra_data;
         bool private_event;
+        bool created;
     }
 
     mapping(address => EventStruct) private allEventStructs;
@@ -62,6 +62,8 @@ contract eventMetadataStorage is Initializable {
         ECONOMICS = IEconomicsGET(address_economics);
     }
 
+  // MODIFIERS
+
     /**
      * @dev Throws if called by any account other than the GET Protocol admin account.
      */
@@ -79,6 +81,9 @@ contract eventMetadataStorage is Initializable {
             GET_BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "CALLER_NOT_ADMIN");
         _;
     }
+
+
+    // FUNCTIONS
 
     function setAccessControl(
       address newAddressBouncer
@@ -117,6 +122,8 @@ contract eventMetadataStorage is Initializable {
       bool isPrivate
       ) public onlyRelayer {
 
+      uint256[2] memory _fees = ECONOMICS.chargeForStatechangeList(msg.sender,3);
+
       address underwriterAddress = 0x0000000000000000000000000000000000000000;
 
       allEventStructs[eventAddress] = EventStruct(
@@ -130,39 +137,57 @@ contract eventMetadataStorage is Initializable {
         eventTimes, 
         setAside,
         extraData,
-        isPrivate
+        isPrivate,
+        true
       );
 
       eventAddresses.push(eventAddress);
 
       emit newEventRegistered(
         eventAddress,
-        20000,
+        _fees[0],
         eventName,
         block.timestamp
       );
     
     }
 
+
+    /** returns the EOA or contract address that has colleterized the NFT
+    @param eventAddress EOA address of the event - primary key assinged by GETcustody
+     */
     function getUnderwriterAddress(
       address eventAddress
-      ) public virtual view returns (
-        address underWriterAddress
-      )
+      ) public virtual view returns (address)
       {
-        underWriterAddress = allEventStructs[eventAddress].underwriter_address;
+        return allEventStructs[eventAddress].underwriter_address;
       }
 
+    /** returns if an event address is colleterized 
+    @param eventAddress EOA address of the event - primary key assinged by GETcustody
+     */
     function isInventoryUnderwritten(
       address eventAddress)
         public virtual view 
-        returns (
-          bool is_set_aside
-        )
+        returns (bool)
         {
-          is_set_aside = allEventStructs[eventAddress].set_aside;
+          return allEventStructs[eventAddress].set_aside;
         }
 
+
+    /** returns if an event address exists 
+    @param eventAddress EOA address of the event - primary key assinged by GETcustody
+     */
+    function doesEventExist(
+      address eventAddress
+    ) public virtual returns(bool)
+    {
+      return allEventStructs[eventAddress].created;
+    }
+
+    /** returns all metadata of an event
+    @param eventAddress EOA address of the event - primary key assinged by GETcustody
+     */
     function getEventData(
       address eventAddress)
         public virtual view
@@ -192,9 +217,9 @@ contract eventMetadataStorage is Initializable {
           _private_event = mdata.private_event;
       }
 
-    function getEventCount() public view returns(uint256 eventCount) 
+    function getEventCount() public view returns(uint256) 
     {
-      eventCount = eventAddresses.length;
+      return eventAddresses.length;
     }
 
 }

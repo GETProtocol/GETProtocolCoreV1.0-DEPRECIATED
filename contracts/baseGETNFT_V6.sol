@@ -37,38 +37,19 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
             ECONOMICS = IEconomicsGET(address_economics);
     }
 
-    /**
-     * @dev Throws if called by any account other than the GET Protocol admin account.
-     */
-    modifier onlyRelayer() {
-        require(
-            GET_BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "CALLER_NOT_RELAYER");
-        _;
-    }
-
-    /**
-     * @dev Throws if called by any account other than the GET Protocol admin account.
-     */
-    modifier onlyAdmin() {
-        require(
-            GET_BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "CALLER_NOT_ADMIN");
-        _;
-    }
-
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
-    bytes32 public constant PROTOCOL_ROLE = keccak256("PROTOCOL_ROLE");
-    bytes32 public constant GET_TEAM_MULTISIG = keccak256("GET_TEAM_MULTISIG");
-    bytes32 public constant GET_GOVERNANCE = keccak256("GET_GOVERNANCE");
+    bytes32 public constant GET_ADMIN = keccak256("GET_ADMIN");
 
-    mapping (uint256 => TicketData) private _ticket_data;
+    // TODO CONSIDER MAKING PRIVATE
+    mapping (uint256 => TicketData) public _ticket_data;
 
     struct TicketData {
         address event_address;
         bytes32[] ticket_metadata;
         uint256[] prices_sold;
-        bool set_aside;
-        bool scanned;
-        bool valid;
+        bool set_aside; // true = collaterized 
+        bool scanned; // true = ticket is scanned, false = ticket is unscanned
+        bool valid; // true = ticket can be used,sold,claimed. false = ticket has been invalidated for whatever reason by issuer. 
     }
 
     event ConfigurationChanged(
@@ -129,15 +110,13 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
 
     event nftMinted(
         uint256 indexed nftIndex,
-        address indexed destinationAddress, 
-        uint timestamp
+        address indexed destinationAddress
     );
 
     event nftTokenURIEdited(
         uint256 indexed nftIndex,
         uint256 indexed getUsed,
-        string netTokenURI,
-        uint timestamp
+        string netTokenURI
     );
 
     event illegalScan(
@@ -146,16 +125,49 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
         uint256 indexed orderTime
     );
 
+    event colleterizedMint(
+        uint256 indexed nftIndex,
+        uint256 indexed getUsed,
+        address destinationAddress, 
+        address eventAddress, 
+        uint256 strikeValue,
+        uint256 indexed orderTime
+    );
+
+    // MODIFIERS BASE GETNFT V6 //
+
     /**
-    @dev primary sale function, moves or mints getNFT to EOA of a ticket buyer
-    @notice this function is always called by flusher when a primary sale takes place
-    @notice internal logic (based on metadata of event) will determine the flow/code that is executed
-    @param destinationAddress address of the ticket buyer (EOA)
-    @param eventAddress address of the event (EOA)
-    @param primaryPrice TODO
-    @param orderTime TODO
-    @param ticketURI TODO
-    @param ticketMetadata TODO
+     * @dev Throws if called by any account other than the GET Protocol admin account.
+     */
+    modifier onlyRelayer() {
+        require(
+            GET_BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "CALLER_NOT_RELAYER");
+        _;
+    }
+
+    /**
+     * @dev Throws if called by any account other than the GET Protocol admin account.
+     */
+    modifier onlyAdmin() {
+        require(
+            GET_BOUNCER.hasRole(GET_ADMIN, msg.sender), "CALLER_NOT_ADMIN");
+        _;
+    }
+
+    // FUNCTIONS BASE GETNFT V6 //
+
+    /**
+    @dev primary sale function, transfers or mints NFT to EOA of a primary market ticket buyer
+    @notice function called directly by relayer or via financing contract
+    @notice path determined by event config in metadata contract
+    @param destinationAddress EOA address of the ticket buyer (GETcustody)
+    @param eventAddress EOA address of the event - primary key assinged by GETcustody
+    @param primaryPrice price paid by primary ticket buyer
+    @param orderTime timestamp the statechange was triggered in the system of the integrator
+    @param ticketURI string stored in metadata of NFT
+    @param ticketMetadata additional meta data about a sale or ticket (like seating, notes, or reslae rukes) stored in unstructed list 
+
+    @return nftIndexP as assigned by the contract when minted
     */
     function primarySale(
         address destinationAddress, 
@@ -164,25 +176,24 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
         uint256 orderTime,
         string calldata ticketURI, 
         bytes32[] calldata ticketMetadata
-    ) external onlyRelayer returns (uint256 nftIndex) {
+    ) external onlyRelayer returns (uint256 nftIndexP) {
 
-        bool _state = false;
-        _state = METADATA.isInventoryUnderwritten(eventAddress);
+        if (METADATA.isInventoryUnderwritten(eventAddress)) { 
 
-        // Ticket inventory is 'set aside' - getNFTs already minted, inventory of event is collateralized.
-        if (_state == true) {  
+             // Ticket inventory is 'set aside' - getNFTs already minted, inventory of event is collateralized.
             
             // fetch underWriter address from metadata contract
             address underwriterAddress = METADATA.getUnderwriterAddress(eventAddress);
             
-            nftIndex = GET_ERC721.tokenOfOwnerByIndex(underwriterAddress, 0);
+            nftIndexP = GET_ERC721.tokenOfOwnerByIndex(underwriterAddress, 0);
 
-            require(_ticket_data[nftIndex].valid == true, "primarySale - NFT INVALIDATED"); 
-            require(GET_ERC721.ownerOf(nftIndex) == underwriterAddress, "primarySale - INCORRECT UNDERWRITER");   
+            require(isNFTSellable(nftIndexP, underwriterAddress), "RE/SALE_ERROR");
+
+            uint256[2] memory _fees = ECONOMICS.chargeForStatechangeList(msg.sender,0);
 
             // getNFT transfer is relayed to FINANCE contract, as to perform accounting
             FINANCE.collateralizedNFTSold(
-                nftIndex,
+                nftIndexP,
                 underwriterAddress,
                 destinationAddress,
                 orderTime,
@@ -192,15 +203,15 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
             GET_ERC721.relayerTransferFrom(
                 underwriterAddress, 
                 destinationAddress, 
-                nftIndex
+                nftIndexP
             );
 
             // push/append colleterization price to getNFT 
-            _ticket_data[nftIndex].prices_sold.push(primaryPrice);
+            _ticket_data[nftIndexP].prices_sold.push(primaryPrice);
 
             emit saleCollaterizedIntentory(
-                nftIndex,
-                10000, // placeholder GET usage
+                nftIndexP,
+                _fees[0],
                 underwriterAddress,
                 destinationAddress, 
                 eventAddress, 
@@ -208,12 +219,14 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
                 orderTime
             );
 
-            return nftIndex;
+            return nftIndexP;
 
             } else {
 
+                // uint256[2] memory _fees = ECONOMICS.chargeForStatechangeList(msg.sender,1);
+
                 // Event NFT is created for is not colleterized, getNFT minted to user 
-                nftIndex = _mintGETNFT( 
+                nftIndexP = _mintGETNFT( 
                     destinationAddress,
                     eventAddress,
                     primaryPrice,
@@ -224,8 +237,8 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
                 );
 
                 emit primarySaleMint(
-                    nftIndex,
-                    10000, 
+                    nftIndexP,
+                    1000, 
                     destinationAddress,
                     eventAddress,
                     primaryPrice,
@@ -233,42 +246,57 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
                 );
 
                 // push/append primary market sale data to getNFT
-                _ticket_data[nftIndex].prices_sold.push(primaryPrice);
-        }
+                // _ticket_data[nftIndex].prices_sold.push(primaryPrice);
+                return nftIndexP;
+            }
 
-        return nftIndex;
-            
     }
 
     /**
     @dev function relays mint transaction from FINANCE contract to internal function _mintGETNFT
     @param destinationAddress EOA address of the event that will receive getNFT for colleterization
-    @param eventAddress primary key of event (EOA account)
-    @param pricepaid TODO
-    @param orderTime TODO
-    @param ticketURI  TODO
-    @param ticketMetadata TODO
-    @param setAsideNFT TODO
+    @param eventAddress EOA address of the event (GETcustody)
+    @param strikeValue price that will be paid by primary ticket buyer
+    @param orderTime timestamp the statechange was triggered in the system of the integrator
+    @param ticketURI string stored in metadata of NFT
+    @param ticketMetadata additional meta data about a sale or ticket (like seating, notes, or reslae rukes) stored in unstructed list 
     */
     function relayColleterizedMint(
         address destinationAddress, 
         address eventAddress, 
-        uint256 pricepaid,
+        uint256 strikeValue,
         uint256 orderTime,
         string calldata ticketURI,
-        bytes32[] calldata ticketMetadata,
-        bool setAsideNFT
+        bytes32[] calldata ticketMetadata
     ) external onlyRelayer returns (uint256 nftIndex) {
 
+        uint256[2] memory _fees = ECONOMICS.chargeForStatechangeList(msg.sender,1);
+
         nftIndex = _mintGETNFT(
-            destinationAddress,
+            eventAddress, // TAKE NOTE
             eventAddress,
-            pricepaid,
+            strikeValue,
             orderTime,
             ticketURI,
             ticketMetadata,
-            setAsideNFT
+            true
         );
+
+        FINANCE.registerCollaterization(
+            eventAddress,
+            nftIndex
+        );
+
+        emit colleterizedMint(
+            nftIndex,
+            _fees[1], 
+            destinationAddress,
+            eventAddress,
+            strikeValue,
+            orderTime
+        );
+
+        return nftIndex;
     }
     
     function changeConfiguration(
@@ -295,53 +323,53 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
     }
 
     /**
-    @dev mints getNFT
+    @dev internal getNFT minting function 
     @notice this function can be called internally, as well as externally (in case of event financing)
-    @param destinationAddress TODO
-    @param eventAddress TODO
-    @param pricepaid TODO
-    @param orderTime TODO
-    @param ticketURI TODO
-    @param ticketMetadata TODO
-    @param setAsideNFT TODO
+    @notice should only mint to EOA addresses managed by GETCustody
+    @param destinationAddress EOA address that is the 'future owner' of a getNFT
+    @param eventAddress EOA address of the event - primary key assinged by GETcustody
+    @param issuePrice the price the getNFT will be offered or collaterized at
+    @param orderTime timestamp the statechange was triggered in the system of the integrator
+    @param ticketURI string stored in metadata of NFT
+    @param ticketMetadata additional meta data about a sale or ticket (like seating, notes, or reslae rukes) stored in unstructed list 
+    @param setAsideNFT bool if a getNFT has been securitized 
     */
     function _mintGETNFT(
         address destinationAddress, 
         address eventAddress, 
-        uint256 pricepaid,
+        uint256 issuePrice,
         uint256 orderTime,
         string memory ticketURI,
         bytes32[] memory ticketMetadata,
         bool setAsideNFT
-        ) internal returns(uint256 nftIndex) {
+        ) internal returns(uint256 nftIndexM) {
 
-        nftIndex = GET_ERC721.mintERC721(
+        nftIndexM = GET_ERC721.mintERC721(
             destinationAddress,
             ticketURI
         );
 
-        TicketData storage tdata = _ticket_data[nftIndex];
+        TicketData storage tdata = _ticket_data[nftIndexM];
         tdata.ticket_metadata = ticketMetadata;
         tdata.event_address = eventAddress;
+        tdata.prices_sold = [issuePrice];
         tdata.set_aside = setAsideNFT;
         tdata.scanned = false;
         tdata.valid = true;
         
         emit nftMinted(
-            nftIndex,
-            destinationAddress, 
-            block.timestamp
+            nftIndexM,
+            destinationAddress
         );
 
-        return nftIndex;
+        return nftIndexM;
     }
 
 
-    /**
-    @dev edits URI of getNFT
+    /** edits URI of getNFT
     @notice select getNFT by address TODO POSSIBLY REMOVE/RETIRE
-    @param originAddress TODO
-    @param newTokenURI TODO
+    @param originAddress originAddress EOA address of GETCustody that is the known owner of the getNFT
+    @param newTokenURI new string stored in metadata of the getNFT
     */
     function editTokenURIbyAddress(
         address originAddress,
@@ -349,56 +377,59 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
         ) external onlyRelayer {
             
             uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0);
-            
-            require(nftIndex >= 0, "editTokenURI !nftIndex");
+
+            uint256[2] memory _fees = ECONOMICS.chargeForStatechangeList(msg.sender,1);
             
             GET_ERC721.editTokenURI(nftIndex, newTokenURI);
             
             emit nftTokenURIEdited(
                 nftIndex,
-                10000,
-                newTokenURI,
-                block.timestamp
+                _fees[0],
+                newTokenURI
             );
         }
 
-    /**
-    @dev edits URI of getNFT
-    @notice select getNFT by the nftIndex
-    @param nftIndex TODO
-    @param newTokenURI TODO
+    /** edits metadataURI stored in the getNFT
+    @dev unused function can be commented
+    @param nftIndex uint256 unique identifier of getNFT assigned by contract at mint
+    @param newTokenURI new string stored in metadata of the getNFT
     */
     function editTokenURIbyIndex(
         uint256 nftIndex,
         string calldata newTokenURI
         ) external onlyRelayer {
 
-            require(nftIndex >= 0, "editTokenURI !nftIndex");
+            uint256[2] memory _fees = ECONOMICS.chargeForStatechangeList(msg.sender,1);
             
             GET_ERC721.editTokenURI(nftIndex, newTokenURI);
             
             emit nftTokenURIEdited(
                 nftIndex,
-                10000,
-                newTokenURI,
-                block.timestamp
+                _fees[0],
+                newTokenURI
             );
         }
 
 
+    /** transfers a getNFT from EOA to EOA
+    @param originAddress EOA address of GETCustody that is the known owner of the getNFT
+    @param destinationAddress EOA address of the event that will receive getNFT for colleterization
+    @param orderTime timestamp the statechange was triggered in the system of the integrator
+    @param secondaryPrice price paid for the getNFT on the secondary market
+     */
     function secondaryTransfer(
         address originAddress, 
         address destinationAddress,
         uint256 orderTime,
         uint256 secondaryPrice) external onlyRelayer {
 
+        uint256[2] memory _fees = ECONOMICS.chargeForStatechangeList(msg.sender,1);
+
         uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0);
-        
-        require(nftIndex >= 0, "scanNFT !nftIndex");
 
-        require(_ticket_data[nftIndex].valid == true, "secondaryTransfer: ALREADY INVALIDATED");
+        require(isNFTSellable(nftIndex, originAddress), "RE/SALE_ERROR");
 
-        require(GET_ERC721.ownerOf(nftIndex) == originAddress, "secondaryTransfer: INVALID NFT OWNER");     
+        _ticket_data[nftIndex].prices_sold.push(secondaryPrice);
         
         GET_ERC721.relayerTransferFrom(
             originAddress, 
@@ -408,7 +439,7 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
 
         emit secondarySale(
             nftIndex,
-            10000,
+            _fees[0],
             destinationAddress, 
             _ticket_data[nftIndex].event_address, 
             secondaryPrice,
@@ -417,71 +448,78 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
     
     }
 
+    /** scans a getNFT, validating it
+    @param originAddress EOA address of GETCustody that is the known owner of the getNFT
+    @param orderTime timestamp the statechange was triggered in the system of the integrator
+     */
     function scanNFT(
         address originAddress, 
         uint256 orderTime
-        ) external onlyRelayer returns(bool) {
+        ) external onlyRelayer {
+
+        uint256[2] memory _fees = ECONOMICS.chargeForStatechangeList(msg.sender,2);
         
         uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0);
-        require(nftIndex >= 0, "scanNFT !nftIndex");
 
-        require(_ticket_data[nftIndex].valid == true, "scanNFT: NFT INVALIDATED");
+        require(_ticket_data[nftIndex].valid == true, "SCAN_INVALID_TICKET");
 
         if (_ticket_data[nftIndex].scanned == true) {
             // The getNFT has already been scanned
             emit illegalScan(
                 nftIndex,
-                1000,
+                _fees[0],
                 orderTime
             );
+        } else {
+            _ticket_data[nftIndex].scanned = true;
 
-            return false; 
+            emit ticketScanned(
+                nftIndex,
+                _fees[0],
+                orderTime
+            );
         }
-
-        _ticket_data[nftIndex].scanned = true;
-
-        emit ticketScanned(
-            nftIndex,
-            10000,
-            orderTime
-        );
-
-        return true;
     }
 
+    /** invalidates a getNFT, making it unusable and untransferrable
+    @param originAddress EOA address of GETCustody that is the known owner of the getNFT
+    @param orderTime timestamp the statechange was triggered in the system of the integrator
+    */
     function invalidateAddressNFT(
         address originAddress, 
         uint256 orderTime) external onlyRelayer {
-
-        // require(GET_BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "invalidateAddressNFT: !RELAYER");
         
         uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0);
-        require(nftIndex >= 0, "invalidateAddressNFT !nftIndex");
 
-        require(_ticket_data[nftIndex].valid != false, "invalidateAddressNFT - ALREADY INVALIDATED");
+        uint256[2] memory _fees = ECONOMICS.chargeForStatechangeList(msg.sender,2);
+
+        require(_ticket_data[nftIndex].valid == true, "DOUBLE_INVALIDATION");
+        
         _ticket_data[nftIndex].valid = false;
 
         emit ticketInvalidated(
             nftIndex, 
-            10000,
+            _fees[0],
             originAddress,
             orderTime
         );
     } 
 
+    /** Claims a scanned and valid NFT to an external EOA address
+    @param originAddress EOA address of GETCustody that is the known owner of the getNFT
+    @param externalAddress EOA address of user that is claiming the gtNFT
+    @param orderTime timestamp the statechange was triggered in the system of the integrator
+     */
     function claimgetNFT(
         address originAddress, 
         address externalAddress,
         uint256 orderTime) external onlyRelayer {
 
-        require(GET_ERC721.balanceOf(originAddress) != 0, "claimgetNFT: NO NFT BALANCE");
+        uint256[2] memory _fees = ECONOMICS.chargeForStatechangeList(msg.sender,1);
 
         uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0); // fetch the index of the NFT
-        require(nftIndex >= 0, "claimgetNFT !nftIndex");
 
-        bool _claimable = isNFTClaimable(nftIndex, originAddress);
-
-        require(_claimable == false, "claimgetNFT - ILLEGAL ClAIM");
+        require(isNFTClaimable(nftIndex, originAddress), "CLAIM_ERROR");
 
         /// Transfer the NFT to destinationAddress
         GET_ERC721.relayerTransferFrom(
@@ -492,53 +530,73 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
 
         emit nftClaimed(
             nftIndex,
-            10000, // get usage placeholder
+            _fees[0], // get usage placeholder
             externalAddress,
             orderTime
         );
 
     }
 
+    /** Returns if an getNFT can be claimed by an external EOA
+    @param nftIndex uint256 unique identifier of getNFT assigned by contract at mint
+    @param ownerAddress EOA address of GETCustody that is the known owner of the getNFT
+    */
     function isNFTClaimable(
         uint256 nftIndex,
         address ownerAddress
     ) public view returns(bool) {
-        if (_ticket_data[nftIndex].valid == true) {
+
+        if (_ticket_data[nftIndex].valid == true || _ticket_data[nftIndex].scanned == true) {
+            if (GET_ERC721.ownerOf(nftIndex) == ownerAddress) {
+                return true;
+            }
+        } else {
             return false;
         }
-        if (_ticket_data[nftIndex].scanned == false) {
-            return false;
-        }
-        if (GET_ERC721.ownerOf(nftIndex) != ownerAddress) {
-            return false;
-        }
-        else {
-            return true;
-        }
-        
     }
 
-    function ticketMetadata(
-        address originAddress)
+    /** Returns if an getNFT can be resold
+    @param nftIndex uint256 unique identifier of getNFT assigned by contract at mint
+    @param ownerAddress EOA address of GETCustody that is the known owner of the getNFT
+    */
+    function isNFTSellable(
+        uint256 nftIndex,
+        address ownerAddress
+    ) public view returns(bool) {
+
+        if (_ticket_data[nftIndex].valid == true || _ticket_data[nftIndex].scanned == false) {
+            if (GET_ERC721.ownerOf(nftIndex) == ownerAddress) {
+                return true;
+            }
+        } else {
+            return false;
+        }
+    }
+
+    /** Returns getNFT metadata by current owner (EOA address)
+    @param ownerAddress EOA address of the address that currently owns the getNFT
+    @dev this function assumes the NFT is still owned by an address controlled by GETCustody. 
+     */
+    function ticketMetadataAddress(
+        address ownerAddress)
       public virtual view returns (
           address _eventAddress,
-          bool _scanned,
-          bool _valid,
           bytes32[] memory _ticketMetadata,
+          uint256[] memory _prices_sold,
           bool _setAsideNFT,
-          uint256[] memory _prices_sold
+          bool _scanned,
+          bool _valid
       )
       {
-          uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0);
-          require(nftIndex >= 0, "scanNFT !nftIndex");
+          uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(ownerAddress, 0); // only selects the fist getNFT
           
           TicketData storage tdata = _ticket_data[nftIndex];
           _eventAddress = tdata.event_address;
+          _ticketMetadata = tdata.ticket_metadata;
+          _prices_sold = tdata.prices_sold;
+          _setAsideNFT = tdata.set_aside;
           _scanned = tdata.scanned;
           _valid = tdata.valid;
-          _ticketMetadata = tdata.ticket_metadata;
-          _setAsideNFT = tdata.set_aside;
-          _prices_sold = tdata.prices_sold;
       }
 
 }

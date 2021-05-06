@@ -22,8 +22,7 @@ contract financingSaleSimple {
     // bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
     // // bytes32 public constant DEFAULT_ADMIN_ROLE = 0x00;
     // bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
-    bytes32 public constant DEFI_ROLE = keccak256("DEFI_ROLE");
-    bytes32 public constant GET_TEAM_MULTISIG = keccak256("GET_TEAM_MULTISIG");
+    bytes32 public constant GET_ADMIN = keccak256("GET_ADMIN");
     bytes32 public constant GET_GOVERNANCE = keccak256("GET_GOVERNANCE");
 
     event FichesSold(
