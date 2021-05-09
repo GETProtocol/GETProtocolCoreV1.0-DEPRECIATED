@@ -313,9 +313,6 @@ contract AccessControlGET is Initializable, AccessControlUpgradeable {
     bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
     bytes32 public constant GET_ADMIN = keccak256("GET_ADMIN");
     bytes32 public constant GET_GOVERNANCE = keccak256("GET_GOVERNANCE");
-    bytes32 public constant EMPTY_SLOT_1 = keccak256("EMPTY_SLOT_1");
-    bytes32 public constant EMPTY_SLOT_2 = keccak256("EMPTY_SLOT_2");
-    bytes32 public constant EMPTY_SLOT_3 = keccak256("EMPTY_SLOT_3");
 
     function __AccessControlGET_init() public initializer {
         __Context_init_unchained();

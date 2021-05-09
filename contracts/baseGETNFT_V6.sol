@@ -41,7 +41,7 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
     bytes32 public constant GET_ADMIN = keccak256("GET_ADMIN");
 
     // TODO CONSIDER MAKING PRIVATE
-    mapping (uint256 => TicketData) public _ticket_data;
+    mapping (uint256 => TicketData) private _ticket_data;
 
     struct TicketData {
         address event_address;
@@ -211,7 +211,7 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
 
             emit saleCollaterizedIntentory(
                 nftIndexP,
-                _fees[0],
+                _fees[1],
                 underwriterAddress,
                 destinationAddress, 
                 eventAddress, 
@@ -223,7 +223,7 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
 
             } else {
 
-                // uint256[2] memory _fees = ECONOMICS.chargeForStatechangeList(msg.sender,1);
+                uint256[2] memory _fees = ECONOMICS.chargeForStatechangeList(msg.sender,1);
 
                 // Event NFT is created for is not colleterized, getNFT minted to user 
                 nftIndexP = _mintGETNFT( 
@@ -238,7 +238,7 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
 
                 emit primarySaleMint(
                     nftIndexP,
-                    1000, 
+                    _fees[1], 
                     destinationAddress,
                     eventAddress,
                     primaryPrice,
@@ -261,14 +261,14 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
     @param ticketURI string stored in metadata of NFT
     @param ticketMetadata additional meta data about a sale or ticket (like seating, notes, or reslae rukes) stored in unstructed list 
     */
-    function relayColleterizedMint(
+    function eventFinancingMint(
         address destinationAddress, 
         address eventAddress, 
         uint256 strikeValue,
         uint256 orderTime,
-        string calldata ticketURI,
-        bytes32[] calldata ticketMetadata
-    ) external onlyRelayer returns (uint256 nftIndex) {
+        string memory ticketURI,
+        bytes32[] memory ticketMetadata
+    ) public onlyRelayer returns (uint256 nftIndex) {
 
         uint256[2] memory _fees = ECONOMICS.chargeForStatechangeList(msg.sender,1);
 
@@ -283,8 +283,9 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
         );
 
         FINANCE.registerCollaterization(
+            nftIndex,
             eventAddress,
-            nftIndex
+            strikeValue
         );
 
         emit colleterizedMint(
@@ -384,7 +385,7 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
             
             emit nftTokenURIEdited(
                 nftIndex,
-                _fees[0],
+                _fees[1],
                 newTokenURI
             );
         }
@@ -405,7 +406,7 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
             
             emit nftTokenURIEdited(
                 nftIndex,
-                _fees[0],
+                _fees[1],
                 newTokenURI
             );
         }
@@ -439,7 +440,7 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
 
         emit secondarySale(
             nftIndex,
-            _fees[0],
+            _fees[1],
             destinationAddress, 
             _ticket_data[nftIndex].event_address, 
             secondaryPrice,
@@ -467,7 +468,7 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
             // The getNFT has already been scanned
             emit illegalScan(
                 nftIndex,
-                _fees[0],
+                _fees[1],
                 orderTime
             );
         } else {
@@ -475,7 +476,7 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
 
             emit ticketScanned(
                 nftIndex,
-                _fees[0],
+                _fees[1],
                 orderTime
             );
         }
@@ -499,7 +500,7 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
 
         emit ticketInvalidated(
             nftIndex, 
-            _fees[0],
+            _fees[1],
             originAddress,
             orderTime
         );
@@ -530,7 +531,7 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
 
         emit nftClaimed(
             nftIndex,
-            _fees[0], // get usage placeholder
+            _fees[1], // get usage placeholder
             externalAddress,
             orderTime
         );
@@ -598,5 +599,39 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
           _scanned = tdata.scanned;
           _valid = tdata.valid;
       }
+
+    function ticketMetadataIndex(
+        uint256 nftIndex
+    ) public view returns(
+          address _eventAddress,
+          bytes32[] memory _ticketMetadata,
+          uint256[] memory _prices_sold,
+          bool _setAsideNFT,
+          bool _scanned,
+          bool _valid
+    ) 
+    {
+          TicketData storage tdata = _ticket_data[nftIndex];
+          _eventAddress = tdata.event_address;
+          _ticketMetadata = tdata.ticket_metadata;
+          _prices_sold = tdata.prices_sold;
+          _setAsideNFT = tdata.set_aside;
+          _scanned = tdata.scanned;
+          _valid = tdata.valid;
+    }
+
+    function addressToIndex(
+        address ownerAddress
+    ) public virtual view returns(uint256)
+    {
+        return GET_ERC721.tokenOfOwnerByIndex(ownerAddress, 0);
+    }
+
+    function returnStructTicket(
+        uint256 nftIndex
+    ) public view returns (TicketData memory)
+    {
+        return _ticket_data[nftIndex];
+    }
 
 }

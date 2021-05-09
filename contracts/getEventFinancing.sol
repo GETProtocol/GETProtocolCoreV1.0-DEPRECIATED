@@ -13,11 +13,10 @@ import "./interfaces/IEconomicsGET.sol";
 
 import "./interfaces/IGETAccessControl.sol";
 
+
 contract getEventFinancing is Initializable, ContextUpgradeable {
     IGETAccessControl public GET_BOUNCER;
     IMetadataStorage public METADATA;
-    IEventFinancing public FINANCE;
-    IGET_ERC721 public GET_ERC721;
     IEconomicsGET public ECONOMICS;
 
     IbaseGETNFT public BASE;
@@ -70,9 +69,11 @@ contract getEventFinancing is Initializable, ContextUpgradeable {
         address eventAddress
     );
 
-    event BaseConfigured(
-        address baseAddress,
-        address requester
+    event ConfigurationChanged(
+        address addressBouncer, 
+        address addressMetadata, 
+        address addressEconomics,
+        address addressBase
     );
 
     function initialize_event_financing(
@@ -109,16 +110,24 @@ contract getEventFinancing is Initializable, ContextUpgradeable {
     }
 
 
+    function changeConfiguration(
+        address newAddressBouncer,
+        address newAddressMetadata,
+        address newAddressEconomics,
+        address newAddressBase
+    ) external onlyAdmin {
+        
+        GET_BOUNCER = IGETAccessControl(newAddressBouncer);
+        METADATA = IMetadataStorage(newAddressMetadata);
+        ECONOMICS = IEconomicsGET(newAddressEconomics);
+        BASE = IbaseGETNFT(newAddressBase);
 
-    function configureBase(address baseAddress) public {
-
-        require(GET_BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "configureBase: !RELAYER");
-
-        BASE = IbaseGETNFT(baseAddress);
-
-        emit BaseConfigured(
-            baseAddress, 
-            msg.sender);
+        emit ConfigurationChanged(
+            newAddressBouncer,
+            newAddressMetadata,
+            newAddressEconomics,
+            newAddressBase
+        );
     }
 
 
@@ -130,9 +139,7 @@ contract getEventFinancing is Initializable, ContextUpgradeable {
         uint256 collaterizedInvTotal,
         uint256 stakedUnderwriter,
         uint finalizedBy
-    ) public {
-
-        require(GET_BOUNCER.hasRole(RELAYER_ROLE, _msgSender()), "addLoanInfo: ILLEGAL RELAYER");
+    ) public onlyRelayer {
 
         // TODO if publishedLoad == True, revert
         // TODO if finalizedLoan == True, revert
@@ -153,13 +160,17 @@ contract getEventFinancing is Initializable, ContextUpgradeable {
     }
 
     /**
-    @param eventAddress TODO
-    @param nftIndex TODO
+    @dev function can only be called by a factory contract
+    @param nftIndex uint256 unique identifier of getNFT assigned by contract at mint - this is the index that is being collaterized 
+    @param eventAddress unique identifier of the event, assigned by GETCustordy
+    @param strikeValue value in USD of the nft when it is sold in the primary market, in the futere, ie strike value 
      */
     function registerCollaterization(
+        uint256 nftIndex,
         address eventAddress,
-        uint256 nftIndex
+        uint256 strikeValue
     ) external onlyFactory {
+
 
         emit ticketCollaterized(
             nftIndex,
@@ -170,7 +181,7 @@ contract getEventFinancing is Initializable, ContextUpgradeable {
 
 
 
-    /**
+    /** DEPRECIATED
     @dev mints getNFT to underwriterAddress
     @dev function is called by primarySale
     @notice only called if the events ticket inventory is collaterized
@@ -220,7 +231,7 @@ contract getEventFinancing is Initializable, ContextUpgradeable {
         address destinationAddress,
         uint256 orderTime,
         uint256 primaryPrice
-    ) external onlyRelayer {
+    ) external onlyFactory {
 
         // TODO insert logic that creates debt for underwriter
 
