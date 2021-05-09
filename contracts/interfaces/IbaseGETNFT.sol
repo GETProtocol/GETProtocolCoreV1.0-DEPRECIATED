@@ -12,10 +12,14 @@ interface IbaseGETNFT {
         bool valid;
     }
 
-    function returnTicketData(
+    function returnStruct(
         uint256 nftIndex
-    ) external view returns(
-        TicketData memory _data);
+    ) external view returns (TicketData memory);
+
+    // function returnTicketData(
+    //     uint256 nftIndex
+    // ) external view returns(
+    //     TicketData memory _data);
 
     function primarySale(
         address destinationAddress, 

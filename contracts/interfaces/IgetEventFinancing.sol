@@ -11,8 +11,9 @@ interface IEventFinancing {
     // ) external;
 
     function registerCollaterization(
+        uint256 nftIndex,
         address eventAddress,
-        uint256 nftIndex
+        uint256 strikeValue
     ) external;
 
     function collateralizedNFTSold(

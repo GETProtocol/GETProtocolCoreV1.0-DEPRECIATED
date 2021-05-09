@@ -48,15 +48,6 @@ contract economicsGET is Initializable {
         bool isConfigured;
     }
 
-    /** Example config
-    relayerAddress: "0x123", This is the address the ticketeer is identified by.
-    timestampStarted: 2311222, Blockheight start of config
-    timestampEnded: none, Blockheight end of config
-    treasuryL: [100,100,100,100]
-    burnL: [100,100,100,100]
-    
-     */
-
     // mapping from relayer address to configs (that are active)
     mapping(address => EconomicsConfig) public allConfigs;
 
@@ -167,6 +158,15 @@ contract economicsGET is Initializable {
         FUELTOKEN = IERC20(newFuelToken);
     }
 
+
+    /** Example config
+    relayerAddress: "0x123", This is the address the ticketeer is identified by.
+    timestampStarted: 2311222, Blockheight start of config
+    timestampEnded: none, Blockheight end of config
+    treasuryL: [100,100,100,100]
+    burnL: [100,100,100,100]
+    isConfigured: bool tracking if a certain relayers GET usage contract are configured
+     */
     function setEconomicsConfig(
         address relayerAddress,
         EconomicsConfig memory EconomicsConfigNew
@@ -222,7 +222,7 @@ contract economicsGET is Initializable {
        
         require( // check if balance sufficient
             (amountToTreasury + amountToBurn) <= _balance,
-        "0 chargePrimaryMint balance low"
+        "GET_BALANCE_LOW"
         );
 
         if (amountToTreasury > 0) {
@@ -234,7 +234,7 @@ contract economicsGET is Initializable {
             FUELTOKEN.transfer(
                 treasuryAddress,
                 amountToTreasury), // TODO or return false?
-                "chargePrimaryMint _feeT FAIL"
+                "GET_TRANSFER_FAIL"
             );
 
 
@@ -253,7 +253,7 @@ contract economicsGET is Initializable {
             FUELTOKEN.transfer(
                 burnAddress,
                 amountToBurn),
-                "chargePrimaryMint _feeB FAIL"
+                "GET_TRANSFER_FAIL"
             );
 
 
@@ -300,43 +300,15 @@ contract economicsGET is Initializable {
             );
 
             return [_feeT,_feeB];
-    } 
-
-    /**
-    @param relayerAddress TODO
-    @param statechangeInt TODO
-     */
-    function chargeForStatechange(
-        address relayerAddress,
-        uint256 statechangeInt
-        ) external onlyFactory returns (bool) 
-        { // TODO check probably external
-
-            // how much GET needs to be sent to the treasury
-            uint256 _feeT = allConfigs[relayerAddress].treasuryL[statechangeInt];
-            // how much GET needs to be sent to the burn
-            uint256 _feeB = allConfigs[relayerAddress].burnL[statechangeInt];
-
-            bool _result = _transferFuelTo(
-                _feeT,
-                _feeB,
-                relayerAddress
-            );
-
-            require( // TODO check if makes sense
-                _result == true, 
-                "fees failed poor person"
-            );
-
-            return _result;
-    }       
+    }
+   
 
     // ticketeer adds GET 
     /** function that tops up the relayer account
     @dev note that relayerAddress does not have to be msg.sender
     @dev so it is possible that an address tops up an account that is not itself
-    @param relayerAddress TODO ADD SOME TEXT
-    @param amountTopped TODO ADD SOME TEXT
+    @param relayerAddress TODO
+    @param amountTopped TODO
     
      */
     function topUpGet(
@@ -365,7 +337,7 @@ contract economicsGET is Initializable {
 
 
         // add the sent tokens to the balance
-        relayerBalance[relayerAddress] = amountTopped;
+        relayerBalance[relayerAddress] += amountTopped;
 
         emit relayerToppedUp(
             relayerAddress,
@@ -373,7 +345,7 @@ contract economicsGET is Initializable {
         );
     }
 
-    // emergency function pulling all GET to admin address
+    // emergency function pulling all GET to admin address WIP
     function emergencyPullGET() 
         external onlyGovernance {
 
@@ -384,6 +356,8 @@ contract economicsGET is Initializable {
             address(emergencyAddress) != address(0),
             "emergencyAddress not set"
         );
+
+        // TODO ADD THE ACTUAL
 
         emit allFuelPulled(
             msg.sender,
@@ -398,10 +372,10 @@ contract economicsGET is Initializable {
      */
     function fuelBalanceOfRelayer(
         address relayerAddress
-    ) public view returns (uint256 _balance) 
+    ) public view returns (uint256) 
     {
         // TODO add check if relayer exists
-        _balance = relayerBalance[relayerAddress];
+       return relayerBalance[relayerAddress];
     }
 
 }

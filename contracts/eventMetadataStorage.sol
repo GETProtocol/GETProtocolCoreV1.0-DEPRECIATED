@@ -2,14 +2,17 @@ pragma solidity ^0.6.2;
 pragma experimental ABIEncoderV2;
 
 import "./utils/Initializable.sol";
+import "./utils/ContextUpgradeable.sol";
 import "./utils/SafeMathUpgradeable.sol";
+import "./interfaces/IbaseGETNFT.sol";
 
 import "./interfaces/IGETAccessControl.sol";
 import "./interfaces/IEconomicsGET.sol";
 
-contract eventMetadataStorage is Initializable {
+contract eventMetadataStorage is Initializable, ContextUpgradeable {
     IGETAccessControl public GET_BOUNCER;
     IEconomicsGET public ECONOMICS;
+    IbaseGETNFT public BASE;
 
     using SafeMathUpgradeable for uint256;
 
@@ -30,7 +33,7 @@ contract eventMetadataStorage is Initializable {
         bool created;
     }
 
-    mapping(address => EventStruct) private allEventStructs;
+    mapping(address => EventStruct) public allEventStructs;
 
     address[] public eventAddresses;  
 
@@ -51,6 +54,10 @@ contract eventMetadataStorage is Initializable {
     event UnderWriterSet(
       address indexed eventAddress,
       address indexed underWriterAddress
+    );
+
+    event BaseConfigured(
+        address baseAddress
     );
 
     // TODO change bouncer name
@@ -93,6 +100,16 @@ contract eventMetadataStorage is Initializable {
         
         emit AccessControlSet(
           newAddressBouncer);
+    }
+
+
+    function configureBase(
+      address base_address) public onlyRelayer {
+
+        BASE = IbaseGETNFT(base_address);
+
+        emit BaseConfigured(
+            base_address);
     }
 
     function setUnderwriterAddress(
@@ -145,11 +162,10 @@ contract eventMetadataStorage is Initializable {
 
       emit newEventRegistered(
         eventAddress,
-        _fees[0],
+        _fees[1],
         eventName,
         block.timestamp
       );
-    
     }
 
 
@@ -180,7 +196,7 @@ contract eventMetadataStorage is Initializable {
      */
     function doesEventExist(
       address eventAddress
-    ) public virtual returns(bool)
+    ) public view virtual returns(bool)
     {
       return allEventStructs[eventAddress].created;
     }
@@ -220,6 +236,13 @@ contract eventMetadataStorage is Initializable {
     function getEventCount() public view returns(uint256) 
     {
       return eventAddresses.length;
+    }
+
+    function returnStructEvent(
+        address eventAddress
+    ) public view returns (EventStruct memory)
+    {
+        return allEventStructs[eventAddress];
     }
 
 }

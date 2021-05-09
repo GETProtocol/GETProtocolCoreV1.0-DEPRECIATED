@@ -1,18 +1,14 @@
 pragma solidity ^0.6.2;
 
+import "./utils/Initializable.sol";
 import "./ERC721UpgradeableGET.sol";
 import "./utils/CountersUpgradeable.sol";
+import "./interfaces/IGETAccessControl.sol";
 
-interface IGETAccessControl {
-    function hasRole(bytes32, address) external view returns (bool);
-}
-
-contract getNFT_ERC721 is ERC721UpgradeableGET {
+contract getNFT_ERC721 is Initializable, ERC721UpgradeableGET {
     IGETAccessControl public GET_BOUNCER;
-    bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
     bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
     bytes32 public constant GET_ADMIN = keccak256("GET_ADMIN");
-    bytes32 public constant GET_GOVERNANCE = keccak256("GET_GOVERNANCE");
 
     event RelayerTransferFrom(
         uint256 nftIndex,
@@ -34,6 +30,24 @@ contract getNFT_ERC721 is ERC721UpgradeableGET {
         GET_BOUNCER = IGETAccessControl(address_bouncer);
     }
 
+    /**
+     * @dev Throws if called by any account other than a GET Protocol governance address.
+     */
+    modifier onlyFactory() {
+        require(
+            GET_BOUNCER.hasRole(FACTORY_ROLE, msg.sender), "CALLER_NOT_FACTORY");
+        _;
+    }
+
+    /**
+     * @dev Throws if called by any account other than the GET Protocol admin account.
+     */
+    modifier onlyAdmin() {
+        require(
+            GET_BOUNCER.hasRole(GET_ADMIN, msg.sender), "CALLER_NOT_ADMIN");
+        _;
+    }
+
     function __ERC721PresetMinterPauserAutoId_init() internal initializer {
         __Context_init_unchained();
         __ERC165_init_unchained();
@@ -51,10 +65,7 @@ contract getNFT_ERC721 is ERC721UpgradeableGET {
     function mintERC721(
         address destinationAddress,
         string memory ticketURI
-    ) public returns (uint256 nftIndexE) {
-
-        // TODO Change to MINTER
-        require(GET_BOUNCER.hasRole(FACTORY_ROLE, _msgSender()), "NOT_FACTORY");
+    ) public onlyFactory returns (uint256 nftIndexE) {
 
         nftIndexE = _tokenIdTracker.current(); 
         _mint(destinationAddress, nftIndexE);
@@ -74,9 +85,7 @@ contract getNFT_ERC721 is ERC721UpgradeableGET {
     function relayerTransferFrom(
         address originAddress, 
         address destinationAddress, 
-        uint256 nftIndex) public {
-
-        require(GET_BOUNCER.hasRole(FACTORY_ROLE, _msgSender()), "NOT_FACTORY");
+        uint256 nftIndex) public onlyFactory {
 
         _beforeTokenTransfer(originAddress, destinationAddress, nftIndex);
 
@@ -95,11 +104,11 @@ contract getNFT_ERC721 is ERC721UpgradeableGET {
         // emit Transfer(originAddress, destinationAddress, nftIndex);
     }
 
-    function editTokenURIBase(
+    function editTokenURI(
         uint256 nftIndex,
         string memory _newTokenURI
-    ) public {
-        require(GET_BOUNCER.hasRole(FACTORY_ROLE, _msgSender()), "NOT_FACTORY");
+    ) public onlyFactory {
+
         _setTokenURI(nftIndex, _newTokenURI);
 
         emit TokenURIEdited(
@@ -107,6 +116,13 @@ contract getNFT_ERC721 is ERC721UpgradeableGET {
             _newTokenURI,
             _msgSender()
         );
+    }
+
+    function editBase(
+        string memory newBaseURL
+    ) public onlyAdmin {
+
+        _setBaseURI(newBaseURL);
     }
 
     function _beforeTokenTransfer(
