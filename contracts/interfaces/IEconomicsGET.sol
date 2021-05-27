@@ -30,4 +30,11 @@ interface IEconomicsGET {
         address relayerAddress,
         uint256 amountTopped
     ) external;
+
+    function fuelBackpackTicket(
+        uint256 nftIndex,
+        address relayerAddress,
+        uint256 basePrice
+        ) external returns(uint256);
+
 }

@@ -6,6 +6,7 @@ import "./utils/Initializable.sol";
 import "./interfaces/IERC20.sol";
 import "./interfaces/IGETAccessControl.sol";
 import "./interfaces/IEconomicsGET.sol";
+import "./interfaces/IticketFuelDepotGET.sol";
 
 import "./utils/SafeMathUpgradeable.sol";
 
@@ -20,6 +21,7 @@ contract economicsGET is Initializable {
     IGETAccessControl public GET_BOUNCER;
     IERC20 public FUELTOKEN;
     IEconomicsGET public ECONOMICS;
+    IticketFuelDepotGET public DEPOT;
 
     using SafeMathUpgradeable for uint256;
     
@@ -28,30 +30,24 @@ contract economicsGET is Initializable {
     bytes32 public constant GET_ADMIN = keccak256("GET_ADMIN");
     bytes32 public constant GET_GOVERNANCE = keccak256("GET_GOVERNANCE");
 
-    address public treasuryAddress;
-    address public burnAddress;
+    address public ticketFuelDepotAddress;
     address public emergencyAddress;
 
-    /**
-    struct defines how much GET is sent from relayer to economcs per type of contract interaction
-    - treasuryFee amount of wei GET that is sent to primary
-    [0 setAsideMint, 1 primarySaleMint, 2 secondarySale, 3 Scan, 4 Claim, 6 CreateEvent, 7 ModifyEvent]
-    - burnFee amount of wei GET that is sent to burn adres
-    [0 setAsideMint, 1 primarySaleMint, 2 secondarySale, 3 Scan, 4 Claim, 6 CreateEvent, 7 ModifyEvent]
-    */
-    struct EconomicsConfig {
-        address relayerAddress; // address of the ticketeer/integrator
+    // temporary static value of GET denominated in USD
+    uint256 public priceGETUSD;
+
+    // baseRate is the percentage amount (so 0.001) for example, 
+    struct EconomicsConfig { 
+        uint256 baseRate;
+        bool isConfigured;
         uint256 timestampStarted; // blockheight of when the config was set
         uint256 timestampEnded; // is 0 if economics confis is still active
-        uint256[] treasuryL;
-        uint256[] burnL;
-        bool isConfigured;
     }
 
-    // mapping from relayer address to configs (that are active)
+    // mapping from relayer address to economics configs (that are active)
     mapping(address => EconomicsConfig) public allConfigs;
 
-    // storage of fee old configs
+    // storage of fee old configs, for historical analysis
     EconomicsConfig[] public oldConfigs;
 
     // mapping from relayer address to GET/Fuel balance (internal fuel balance)
@@ -85,10 +81,20 @@ contract economicsGET is Initializable {
     );
 
     event allFuelPulled(
-        address requestAddress,
         address receivedByAddress,
         uint256 amountPulled
     );
+
+    event coreAddressesEdit(
+        address newBouncerSet,
+        address newFuelSet,
+        address newDepotSet
+    );
+
+    event priceGETChanged(
+        uint256 newGETUSDPrice
+    );
+
 
     /**
      * @dev Throws if called by any account other than the GET Protocol admin account.
@@ -136,26 +142,31 @@ contract economicsGET is Initializable {
             relayerRegistry[msg.sender] == true, "RELAYER_NOT_REGISTERED");
         _;
     }
-
+    
     function initialize_economics(
         address address_bouncer,
-        address fueltoken_address
+        address fueltoken_address,
+        address depot_address
         ) public initializer {
             GET_BOUNCER = IGETAccessControl(address_bouncer);
-            treasuryAddress = 0x3EaE56964B8CE1Cb52f395444c0f89577Bd6bB49;
-            burnAddress = 0x3EaE56964B8CE1Cb52f395444c0f89577Bd6bB49;
             FUELTOKEN = IERC20(fueltoken_address);
+            DEPOT = IticketFuelDepotGET(depot_address);
         }
-    
 
     function editCoreAddresses(
-        address newAddressBurn,
-        address newAddressTreasury,
-        address newFuelToken
+        address newBouncerAddress,
+        address newFuelAddress,
+        address newDepotAddress
     ) external onlyAdmin {
-        burnAddress = newAddressBurn;
-        treasuryAddress = newAddressTreasury;
-        FUELTOKEN = IERC20(newFuelToken);
+        GET_BOUNCER = IGETAccessControl(newBouncerAddress);
+        FUELTOKEN = IERC20(newFuelAddress);
+        DEPOT = IticketFuelDepotGET(newDepotAddress);
+
+        emit coreAddressesEdit(
+            newBouncerAddress,
+            newFuelAddress,
+            newDepotAddress
+        );
     }
 
 
@@ -163,8 +174,7 @@ contract economicsGET is Initializable {
     relayerAddress: "0x123", This is the address the ticketeer is identified by.
     timestampStarted: 2311222, Blockheight start of config
     timestampEnded: none, Blockheight end of config
-    treasuryL: [100,100,100,100]
-    burnL: [100,100,100,100]
+    treasuryL: 0.03 = 3% of the primary value in USD is put in the GET backpack
     isConfigured: bool tracking if a certain relayers GET usage contract are configured
      */
     function setEconomicsConfig(
@@ -177,6 +187,8 @@ contract economicsGET is Initializable {
 
         // set the blockheight of starting block
         allConfigs[relayerAddress].timestampStarted = block.timestamp;
+        
+        // mark storage slot as being occupied
         allConfigs[relayerAddress].isConfigured = true;
 
         emit configChanged(
@@ -185,130 +197,54 @@ contract economicsGET is Initializable {
 
     }
 
-    function balanceOfRelayer(
-        address relayerAddress
-    ) public view returns (uint256) 
-    {
-        return relayerBalance[relayerAddress];
-    }
-
-    function balancerOfCaller() public view
-    returns (uint256) 
-        {
-            return relayerBalance[msg.sender];
-        }
-    
-    // TOD) check if this works / can work
-    function checkIfRelayer(
-        address relayerAddress
-    ) public view returns (bool) 
-    {
-        return relayerRegistry[relayerAddress];
-    }
-    
-
     /**
-    @param amountToTreasury TODO
-    @param amountToBurn TODO
-    @param relayerA TODO
+    @notice this contract can only be called by baseNFT contract via the primarySale funciton
+    @notice will only run if a ticketeer has sufficient GET balance - otherwise will fail
+    @param nftIndex unique indentifier of getNFT as 'to be minted' by baseNFT contract
+    @param relayerAddress address of the ticketeer / integrator that is requesting this NFT mint
+    @param basePrice base value in USD of the NFT that is going to be offered
      */
-    function _transferFuelTo(
-        uint256 amountToTreasury,
-        uint256 amountToBurn,
-        address relayerA
-    ) internal returns (bool) {
-
-        uint256 _balance = relayerBalance[relayerA];
-       
-        require( // check if balance sufficient
-            (amountToTreasury + amountToBurn) <= _balance,
-        "GET_BALANCE_LOW"
-        );
-
-        if (amountToTreasury > 0) {
-            
-            // deduct from balance
-            relayerBalance[relayerA] =- amountToTreasury;
-
-            require( // transfer to treasury
-            FUELTOKEN.transfer(
-                treasuryAddress,
-                amountToTreasury), // TODO or return false?
-                "GET_TRANSFER_FAIL"
-            );
-
-
-            emit feeToTreasury(
-                amountToTreasury,
-                relayerBalance[relayerA]
-            );
-        }
-
-        if (amountToBurn > 0) {
-
-            // deduct from balance 
-            relayerBalance[relayerA] =- amountToBurn;
-
-            require( // transfer to treasury
-            FUELTOKEN.transfer(
-                burnAddress,
-                amountToBurn),
-                "GET_TRANSFER_FAIL"
-            );
-
-
-            emit feeToBurn(
-                amountToBurn,
-                relayerBalance[relayerA]
-            );
-
-        }
-        return true;
-    }
-
-
-    function checkFeeForStatechange(
+    function fuelBackpackTicket(
+        uint256 nftIndex,
         address relayerAddress,
-        uint256 statechangeInt
-        ) external view returns (uint256) 
-        {
-            return allConfigs[relayerAddress].treasuryL[statechangeInt];
-        }
+        uint256 basePrice
+        ) external onlyFactory returns (uint256) 
+        { 
 
+            // calculate amount of GET required for backpack
+            uint256 _getamount = calcBackpackGET(
+                basePrice,
+                allConfigs[relayerAddress].baseRate
+            );
 
-    /**
-    @param relayerAddress TODO
-    @param statechangeInt TODO
-     */
-    function chargeForStatechangeList(
-        address relayerAddress,
-        uint256 statechangeInt
-        ) external onlyFactory returns (uint256[2] memory) 
-        { // TODO check probably external
+            // check if integrator has sufficient GET for action
+            require( 
+                _getamount <= relayerBalance[relayerAddress],
+            "GET_BALANCE_LOW"
+            );
 
-            // how much GET needs to be sent to the treasury
-            uint256 _feeT = allConfigs[relayerAddress].treasuryL[statechangeInt];
-            // how much GET needs to be sent to the burn
-            uint256 _feeB = allConfigs[relayerAddress].burnL[statechangeInt];
+            // deduct the GET that will be sent to the depot from the ticketeers balance
+            relayerBalance[relayerAddress] -= _getamount;
 
+            // call depot contract to transfer the GET and register the NFT in the depot proxy
             require(
-                _transferFuelTo(
-                    _feeT,
-                    _feeB,
-                    relayerAddress),
-                    "GET_FUEL_FAILED"
-            );
+                DEPOT.fuelBackpack(
+                    nftIndex,
+                    _getamount
+                ),
+                "DEPOT_TRANSFER_FAILED");
 
-            return [_feeT,_feeB];
+            // return to the base contract the amount of GET used
+            return _getamount;
     }
    
 
-    // ticketeer adds GET 
+    // ticketeer adds GET to their balance
     /** function that tops up the relayer account
     @dev note that relayerAddress does not have to be msg.sender
     @dev so it is possible that an address tops up an account that is not itself
-    @param relayerAddress TODO
-    @param amountTopped TODO
+    @param relayerAddress address of the ticketeer / integrator
+    @param amountTopped amount of GET that is added to the balance of the integrator
     
      */
     function topUpGet(
@@ -316,23 +252,23 @@ contract economicsGET is Initializable {
         uint256 amountTopped
     ) public onlyRelayer {
 
-        // TODO maybe add check if msg.sender is real/known/registered
+        // TODO add check if msg.sender is real/known/registered relayerAddress
 
-        // check if msg.sender has allowed contract to spend/send tokens
+        // check if msg.sender has allowed contract to spend/send tokens on the callers behalf
         require(
             FUELTOKEN.allowance(
                 relayerAddress, 
                 address(this)) >= amountTopped,
-            "topUpGet - ALLOWANCE FAILED - ALLOW CONTRACT FIRST!"
+            "ALLOWANCE_FAILED_TOPUPGET"
         );
 
-        // tranfer tokens from msg.sender to contract
+        // tranfer tokens from msg.sender to this contract address (economicsGET proxy)
         require(
             FUELTOKEN.transferFrom(
                 relayerAddress, 
                 address(this),
                 amountTopped),
-            "topUpGet - TRANSFERFROM STABLES FAILED"
+            "TRANSFER_FAILED_TOPUPGET"
         );
 
 
@@ -345,30 +281,67 @@ contract economicsGET is Initializable {
         );
     }
 
-    // emergency function pulling all GET to admin address WIP
-    function emergencyPullGET() 
-        external onlyGovernance {
 
-        // fetch GET balance of this contract
-        uint256 _balanceAll = FUELTOKEN.balanceOf(address(this));
-
-        require(
-            address(emergencyAddress) != address(0),
-            "emergencyAddress not set"
+    /** set the price used by the contract to price GET in usd
+    @param newGETPrice new GETUSD price used to calculate amont of GET needed in the rucksack of an NFT
+     */
+    function setPriceGETUSD(
+        uint256 newGETPrice
+    ) public onlyAdmin {
+        priceGETUSD = newGETPrice;
+        
+        emit priceGETChanged(
+            newGETPrice
         );
-
-        // TODO ADD THE ACTUAL
-
-        emit allFuelPulled(
-            msg.sender,
-            emergencyAddress,
-            _balanceAll
-        );
-
     }
 
+    /** calculates the amount of GET required in a backpack
+    @notice in dollarvalue the total USD value of the ticket needs to be passed
+    @notice this function uses the contracts global priceGETUSD value to determine the price
+    @param dollarvalue amount of USD that needs to be in the rucksack
+     */
+     function calcNeededGET(
+         uint256 dollarvalue
+     ) public view returns(uint256) {
+         require(dollarvalue > 0, "DOL_ZERO_VALUE");
+         require(priceGETUSD > 0, "GET_ZERO_VALUE");
+         return dollarvalue.div(priceGETUSD);
+     }
+
+
+    /**
+    @param baseTicketPrice base amount in USD of the ticket being minted
+    @param percetageCut percentage 0.01, 0.03 etc that goes in the rucksack in USD value
+     */
+    function calcBackpackValue(
+        uint256 baseTicketPrice,
+        uint256 percetageCut
+    ) public view returns(uint256) {
+
+        // TODO add sanitity check for percentageCut
+
+        return baseTicketPrice.mul(percetageCut);
+    }
+
+
+    /**
+    @param baseTicketPrice base amount in USD of the ticket being minted
+    @param percetageCut percentage 0.01, 0.03 etc that goes in the rucksack in USD value
+     */
+    function calcBackpackGET(
+        uint256 baseTicketPrice,
+        uint256 percetageCut
+    ) public view returns(uint256) {
+
+        // TODO add sanitity check for percentageCut
+
+        uint256 _val1 = calcBackpackValue(baseTicketPrice, percetageCut);
+        return calcNeededGET(_val1);
+    }
+
+
     /** Returns the amount of GET on the balance of the 
-    @param relayerAddress TODO 
+    @param relayerAddress address of the ticketeer / integrator
      */
     function fuelBalanceOfRelayer(
         address relayerAddress
@@ -377,5 +350,36 @@ contract economicsGET is Initializable {
         // TODO add check if relayer exists
        return relayerBalance[relayerAddress];
     }
+
+
+    /** returns the GET balance of a certain integrator address
+    @param relayerAddress address of integrator/ticketeer
+     */
+    function balanceOfRelayer(
+        address relayerAddress
+    ) public view returns (uint256) 
+    {
+        return relayerBalance[relayerAddress];
+    }
+
+    /** returns the GET balance of the calling address
+    @notice should be called by relayer
+     */
+    function balancerOfCaller() public view
+    returns (uint256) 
+        {
+            return relayerBalance[msg.sender];
+        }
+    
+    /**  returns bool if a address is an known relayer
+    @param relayerAddress address of integrator/ticketeer
+     */
+    function checkIfRelayer(
+        address relayerAddress
+    ) public view returns (bool) 
+    {
+        return relayerRegistry[relayerAddress];
+    }
+
 
 }
