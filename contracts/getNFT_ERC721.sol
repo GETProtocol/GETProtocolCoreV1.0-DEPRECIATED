@@ -1,4 +1,5 @@
-pragma solidity ^0.6.2;
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.5.0 <0.7.0;
 
 import "./utils/Initializable.sol";
 import "./ERC721UpgradeableGET.sol";
@@ -7,8 +8,18 @@ import "./interfaces/IGETAccessControl.sol";
 
 contract getNFT_ERC721 is Initializable, ERC721UpgradeableGET {
     IGETAccessControl public GET_BOUNCER;
-    bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
-    bytes32 public constant GET_ADMIN = keccak256("GET_ADMIN");
+    bytes32 private constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
+    bytes32 private constant GET_ADMIN = keccak256("GET_ADMIN");
+
+    string public constant contractName = "getNFT_ERC721";
+    string public constant contractVersion = "1";
+
+    function _initialize_erc721(
+        address address_bouncer
+        ) public virtual initializer {
+        __ERC721PresetMinterPauserAutoId_init();
+        GET_BOUNCER = IGETAccessControl(address_bouncer);
+    }
 
     event RelayerTransferFrom(
         uint256 nftIndex,
@@ -22,13 +33,6 @@ contract getNFT_ERC721 is Initializable, ERC721UpgradeableGET {
         string newTokenURI,
         address requester
     );
-
-    function initialize_erc721(
-        address address_bouncer
-        ) public virtual initializer {
-        __ERC721PresetMinterPauserAutoId_init();
-        GET_BOUNCER = IGETAccessControl(address_bouncer);
-    }
 
     /**
      * @dev Throws if called by any account other than a GET Protocol governance address.

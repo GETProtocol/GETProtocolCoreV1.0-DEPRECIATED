@@ -1,4 +1,5 @@
-pragma solidity ^0.6.2;
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.5.0 <0.7.0;
 
 import "./utils/EnumerableSetUpgradeable.sol";
 import "./utils/AddressUpgradeable.sol";
@@ -313,6 +314,9 @@ contract AccessControlGET is Initializable, AccessControlUpgradeable {
     bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
     bytes32 public constant GET_ADMIN = keccak256("GET_ADMIN");
     bytes32 public constant GET_GOVERNANCE = keccak256("GET_GOVERNANCE");
+
+    string public constant contractName = "AccessControlGET";
+    string public constant contractVersion = "1";
 
     function __AccessControlGET_init() public initializer {
         __Context_init_unchained();
