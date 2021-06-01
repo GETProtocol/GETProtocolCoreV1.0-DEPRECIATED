@@ -1,4 +1,5 @@
-pragma solidity ^0.6.2;
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.5.0 <0.7.0;
 pragma experimental ABIEncoderV2;
 
 import "./utils/Initializable.sol";
@@ -47,17 +48,20 @@ import "./interfaces/IGETAccessControl.sol";
 
 */
 
-contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
-    IGETAccessControl public GET_BOUNCER;
-    IMetadataStorage public METADATA;
-    IEventFinancing public FINANCE;
-    IGET_ERC721 public GET_ERC721;
-    IEconomicsGET public ECONOMICS;
-    IticketFuelDepotGET public DEPOT;
+contract baseGETNFT is Initializable, ContextUpgradeable {
+    IGETAccessControl private GET_BOUNCER;
+    IGET_ERC721 private GET_ERC721;
+    IMetadataStorage private METADATA;
+    IEventFinancing private FINANCE;
+    IEconomicsGET private ECONOMICS;
+    IticketFuelDepotGET private DEPOT;
+
+    string public constant contractName = "baseGETNFT";
+    string public constant contractVersion = "1";
 
     using SafeMathUpgradeable for uint256;
     
-    function initialize_base(
+    function _initialize_base(
         address address_bouncer, 
         address address_metadata, 
         address address_finance,
@@ -73,18 +77,17 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
             DEPOT = IticketFuelDepotGET(address_fueldepot);
     }
 
-    bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
-    bytes32 public constant GET_ADMIN = keccak256("GET_ADMIN");
+    bytes32 private constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
+    bytes32 private constant GET_ADMIN = keccak256("GET_ADMIN");
 
-    // TODO CONSIDER MAKING PRIVATE
     mapping (uint256 => TicketData) private _ticket_data;
 
     struct TicketData {
         address event_address;
         bytes32[] ticket_metadata;
         uint256[] prices_sold;
-        bool set_aside; // true = collaterized 
-        bool scanned; // true = ticket is scanned, false = ticket is unscanned
+        bool set_aside; // true = collaterized ticket/nft
+        bool scanned; // true = ticket is scanned, false = ticket is not scanned (so still scanable)
         bool valid; // true = ticket can be used,sold,claimed. false = ticket has been invalidated for whatever reason by issuer. 
     }
 
@@ -92,8 +95,7 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
         address addressBouncer, 
         address addressMetadata, 
         address addressFinance,
-        address addressERC721,
-        address addressEconomics
+        address addressERC721
     );
 
     event primarySaleMint(
@@ -167,7 +169,12 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
         uint256 indexed orderTime
     );
 
-    // MODIFIERS BASE GETNFT V6 //
+    event ConfigurationChangedEcon(
+        address AddressEconomics,
+        address DepotAddress
+    );
+
+    // MODIFIERS BASE_GETNFT //
 
     /**
      * @dev Throws if called by any account other than the GET Protocol admin account.
@@ -187,7 +194,44 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
         _;
     }
 
-    // FUNCTIONS BASE GETNFT V6 //
+
+    // MAINTENANCE FUNCTIONS
+
+    function changeConfiguration(
+        address newAddressBouncer,
+        address newAddressMetadata,
+        address newAddressFinance,
+        address newAddressERC721
+    ) external onlyAdmin {
+        
+        GET_BOUNCER = IGETAccessControl(newAddressBouncer);
+        METADATA = IMetadataStorage(newAddressMetadata);
+        FINANCE = IEventFinancing(newAddressFinance);
+        GET_ERC721 = IGET_ERC721(newAddressERC721);
+
+        emit ConfigurationChanged(
+            newAddressBouncer,
+            newAddressMetadata,
+            newAddressFinance,
+            newAddressERC721
+        );
+    }
+
+    function changeConfigurationEcon(
+        address newAddressEconomics,
+        address newDepotAddress
+    ) external onlyAdmin {
+        
+        ECONOMICS = IEconomicsGET(newAddressEconomics);
+        DEPOT = IticketFuelDepotGET(newDepotAddress);
+
+        emit ConfigurationChangedEcon(
+            newAddressEconomics,
+            newDepotAddress
+        );
+    }
+
+   // OPERATIONAL TICKETING FUNCTIONS //
 
     /**
     @dev primary sale function, transfers or mints NFT to EOA of a primary market ticket buyer
@@ -225,6 +269,8 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
             require(isNFTSellable(nftIndexP, underwriterAddress), "RE/SALE_ERROR");
 
             uint256 charged = DEPOT.chargeProtocolTax(nftIndexP);
+
+            require(charged > 0, "PRIMARY1_NO_GET_FEE_PAID");
 
             // getNFT transfer is relayed to FINANCE contract, as to perform accounting
             FINANCE.collateralizedNFTSold(
@@ -266,15 +312,18 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
                     false 
                 );
 
-                // // fuel the tank of the NFT, passing on the base price
-                // uint256 reserved = ECONOMICS.fuelBackpackTicket(
-                //     nftIndexP,
-                //     msg.sender,
-                //     basePrice
-                // );
+                // fuel the tank of the NFT, passing on the base price
+                uint256 reserved = ECONOMICS.fuelBackpackTicket(
+                    nftIndexP,
+                    msg.sender,
+                    basePrice
+                );
+
+                require(reserved > 0, "PRIMARYMINT_NO_GET_RESERVED");
 
                 // charge the protocol tax rate on the tank balance
                 uint256 charged = DEPOT.chargeProtocolTax(nftIndexP);
+                require(charged > 0, "PRIMARYMINT_NO_GET_FEE_PAID");
 
                 emit primarySaleMint(
                     nftIndexP,
@@ -287,6 +336,135 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
 
                 return nftIndexP;
             }
+
+    }
+
+    /** transfers a getNFT from EOA to EOA
+    @param originAddress EOA address of GETCustody that is the known owner of the getNFT
+    @param destinationAddress EOA address of the event that will receive getNFT for colleterization
+    @param orderTime timestamp the statechange was triggered in the system of the integrator
+    @param secondaryPrice price paid for the getNFT on the secondary market
+     */
+    function secondaryTransfer(
+        address originAddress, 
+        address destinationAddress,
+        uint256 orderTime,
+        uint256 secondaryPrice) external onlyRelayer {
+
+        uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0);
+
+        uint256 charged = DEPOT.chargeProtocolTax(nftIndex);
+
+        require(charged > 0, "SECONDARY_NO_GET_FEE_PAID");
+        require(isNFTSellable(nftIndex, originAddress), "RE/SALE_ERROR");
+
+        _ticket_data[nftIndex].prices_sold.push(secondaryPrice);
+        
+        GET_ERC721.relayerTransferFrom(
+            originAddress, 
+            destinationAddress, 
+            nftIndex
+        );
+
+        emit secondarySale(
+            nftIndex,
+            charged,
+            destinationAddress, 
+            _ticket_data[nftIndex].event_address, 
+            secondaryPrice,
+            orderTime
+        );
+    
+    }
+
+    /** scans a getNFT, validating it
+    @param originAddress EOA address of GETCustody that is the known owner of the getNFT
+    @param orderTime timestamp the statechange was triggered in the system of the integrator
+     */
+    function scanNFT(
+        address originAddress, 
+        uint256 orderTime
+        ) external onlyRelayer {
+        
+        uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0);
+        
+        uint256 charged = DEPOT.chargeProtocolTax(nftIndex);
+
+        require(charged > 0, "SCAN_NO_GET_FEE_PAID");
+        require(_ticket_data[nftIndex].valid == true, "SCAN_INVALID_TICKET");
+
+        if (_ticket_data[nftIndex].scanned == true) { // The getNFT was already in the scanned state (so a dubble scan was performed) 
+            emit illegalScan(
+                nftIndex,
+                charged,
+                orderTime
+            );
+        } else { // valid scan - getNFT was unscanned
+            _ticket_data[nftIndex].scanned = true;
+
+            emit ticketScanned(
+                nftIndex,
+                charged,
+                orderTime
+            );
+        }
+    }
+
+    /** invalidates a getNFT, making it unusable and untransferrable
+    @param originAddress EOA address of GETCustody that is the known owner of the getNFT
+    @param orderTime timestamp the statechange was triggered in the system of the integrator
+    */
+    function invalidateAddressNFT(
+        address originAddress, 
+        uint256 orderTime) external onlyRelayer {
+        
+        uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0);
+
+        uint256 charged = DEPOT.chargeProtocolTax(nftIndex);
+        
+        require(charged > 0, "IVALIDATE_NO_GET_FEE_PAID");
+        require(_ticket_data[nftIndex].valid == true, "DOUBLE_INVALIDATION");
+        
+        _ticket_data[nftIndex].valid = false;
+
+        emit ticketInvalidated(
+            nftIndex, 
+            charged,
+            originAddress,
+            orderTime
+        );
+    } 
+
+    /** Claims a scanned and valid NFT to an external EOA address
+    @param originAddress EOA address of GETCustody that is the known owner of the getNFT
+    @param externalAddress EOA address of user that is claiming the gtNFT
+    @param orderTime timestamp the statechange was triggered in the system of the integrator
+     */
+    function claimgetNFT(
+        address originAddress, 
+        address externalAddress,
+        uint256 orderTime) external onlyRelayer {
+
+        uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0); // fetch the index of the NFT
+
+        uint256 charged = DEPOT.chargeProtocolTax(nftIndex);
+
+        require(charged > 0, "CLAIM_NO_GET_FEE_PAID");
+        require(isNFTClaimable(nftIndex, originAddress), "CLAIM_ERROR");
+
+        /// Transfer the NFT to destinationAddress
+        GET_ERC721.relayerTransferFrom(
+            originAddress, 
+            externalAddress, 
+            nftIndex
+        );
+
+        emit nftClaimed(
+            nftIndex,
+            charged,
+            externalAddress,
+            orderTime
+        );
 
     }
 
@@ -312,6 +490,8 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
 
         // TODO NFT FIRST NEEDS TO BE FUELED
         uint256 charged = DEPOT.chargeProtocolTax(nftIndex);
+
+        require(charged > 0, "FINANCE_NO_GET_FEE_PAID");
 
         nftIndex = _mintGETNFT(
             eventAddress, // TAKE NOTE MINTING TO EVENT ADDRESS
@@ -341,30 +521,7 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
         return nftIndex;
     }
     
-    function changeConfiguration(
-        address newAddressBouncer,
-        address newAddressMetadata,
-        address newAddressFinance,
-        address newAddressERC721,
-        address newAddressEconomics,
-        address newDepotAddress
-    ) external onlyAdmin {
-        
-        GET_BOUNCER = IGETAccessControl(newAddressBouncer);
-        METADATA = IMetadataStorage(newAddressMetadata);
-        FINANCE = IEventFinancing(newAddressFinance);
-        GET_ERC721 = IGET_ERC721(newAddressERC721);
-        ECONOMICS = IEconomicsGET(newAddressEconomics);
-        DEPOT = IticketFuelDepotGET(newDepotAddress);
 
-        emit ConfigurationChanged(
-            newAddressBouncer,
-            newAddressMetadata,
-            newAddressFinance,
-            newAddressERC721,
-            newAddressEconomics
-        );
-    }
 
     /**
     @dev internal getNFT minting function 
@@ -423,6 +580,8 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
             uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0);
 
             uint256 charged = DEPOT.chargeProtocolTax(nftIndex);
+
+            require(charged > 0, "EDIT_NO_GET_FEE_PAID");
             
             GET_ERC721.editTokenURI(nftIndex, newTokenURI);
             
@@ -454,134 +613,7 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
             );
         }
 
-
-    /** transfers a getNFT from EOA to EOA
-    @param originAddress EOA address of GETCustody that is the known owner of the getNFT
-    @param destinationAddress EOA address of the event that will receive getNFT for colleterization
-    @param orderTime timestamp the statechange was triggered in the system of the integrator
-    @param secondaryPrice price paid for the getNFT on the secondary market
-     */
-    function secondaryTransfer(
-        address originAddress, 
-        address destinationAddress,
-        uint256 orderTime,
-        uint256 secondaryPrice) external onlyRelayer {
-
-        uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0);
-
-        uint256 charged = DEPOT.chargeProtocolTax(nftIndex);
-
-        require(isNFTSellable(nftIndex, originAddress), "RE/SALE_ERROR");
-
-        _ticket_data[nftIndex].prices_sold.push(secondaryPrice);
-        
-        GET_ERC721.relayerTransferFrom(
-            originAddress, 
-            destinationAddress, 
-            nftIndex
-        );
-
-        emit secondarySale(
-            nftIndex,
-            charged,
-            destinationAddress, 
-            _ticket_data[nftIndex].event_address, 
-            secondaryPrice,
-            orderTime
-        );
-    
-    }
-
-    /** scans a getNFT, validating it
-    @param originAddress EOA address of GETCustody that is the known owner of the getNFT
-    @param orderTime timestamp the statechange was triggered in the system of the integrator
-     */
-    function scanNFT(
-        address originAddress, 
-        uint256 orderTime
-        ) external onlyRelayer {
-        
-        uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0);
-        
-        uint256 charged = DEPOT.chargeProtocolTax(nftIndex);
-
-        require(_ticket_data[nftIndex].valid == true, "SCAN_INVALID_TICKET");
-
-        if (_ticket_data[nftIndex].scanned == true) {
-            // The getNFT has already been scanned
-            emit illegalScan(
-                nftIndex,
-                charged,
-                orderTime
-            );
-        } else {
-            _ticket_data[nftIndex].scanned = true;
-
-            emit ticketScanned(
-                nftIndex,
-                charged,
-                orderTime
-            );
-        }
-    }
-
-    /** invalidates a getNFT, making it unusable and untransferrable
-    @param originAddress EOA address of GETCustody that is the known owner of the getNFT
-    @param orderTime timestamp the statechange was triggered in the system of the integrator
-    */
-    function invalidateAddressNFT(
-        address originAddress, 
-        uint256 orderTime) external onlyRelayer {
-        
-        uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0);
-
-        uint256 charged = DEPOT.chargeProtocolTax(nftIndex);
-
-        require(_ticket_data[nftIndex].valid == true, "DOUBLE_INVALIDATION");
-        
-        _ticket_data[nftIndex].valid = false;
-
-        emit ticketInvalidated(
-            nftIndex, 
-            charged,
-            originAddress,
-            orderTime
-        );
-    } 
-
-    /** Claims a scanned and valid NFT to an external EOA address
-    @param originAddress EOA address of GETCustody that is the known owner of the getNFT
-    @param externalAddress EOA address of user that is claiming the gtNFT
-    @param orderTime timestamp the statechange was triggered in the system of the integrator
-     */
-    function claimgetNFT(
-        address originAddress, 
-        address externalAddress,
-        uint256 orderTime) external onlyRelayer {
-
-        uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0); // fetch the index of the NFT
-
-        uint256 charged = DEPOT.chargeProtocolTax(nftIndex);
-
-        require(isNFTClaimable(nftIndex, originAddress), "CLAIM_ERROR");
-
-        /// Transfer the NFT to destinationAddress
-        GET_ERC721.relayerTransferFrom(
-            originAddress, 
-            externalAddress, 
-            nftIndex
-        );
-
-        emit nftClaimed(
-            nftIndex,
-            charged,
-            externalAddress,
-            orderTime
-        );
-
-    }
-
-    // VIEW FUNCTIONS GET PROTOCOL
+    // VIEW FUNCTIONS 
 
     /** Returns if an getNFT can be claimed by an external EOA
     @param nftIndex uint256 unique identifier of getNFT assigned by contract at mint
@@ -634,9 +666,8 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
           bool _valid
       )
       {
-          uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(ownerAddress, 0); // only selects the fist getNFT
           
-          TicketData storage tdata = _ticket_data[nftIndex];
+          TicketData storage tdata = _ticket_data[GET_ERC721.tokenOfOwnerByIndex(ownerAddress, 0)];
           _eventAddress = tdata.event_address;
           _ticketMetadata = tdata.ticket_metadata;
           _prices_sold = tdata.prices_sold;
@@ -665,6 +696,10 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
           _valid = tdata.valid;
     }
 
+    /**
+    @param ownerAddress address of the owner of the getNFT
+    @notice the ownerAddress of an active ticket is generally held by GETCustody
+     */
     function addressToIndex(
         address ownerAddress
     ) public virtual view returns(uint256)
@@ -672,11 +707,15 @@ contract baseGETNFT_V6 is Initializable, ContextUpgradeable {
         return GET_ERC721.tokenOfOwnerByIndex(ownerAddress, 0);
     }
 
+    /** returns the metadata struct of the ticket (base data)
+    @param nftIndex unique indentifier of getNFT
+     */
     function returnStructTicket(
         uint256 nftIndex
     ) public view returns (TicketData memory)
     {
         return _ticket_data[nftIndex];
     }
+
 
 }

@@ -1,4 +1,5 @@
-pragma solidity ^0.6.2;
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.5.0 <0.7.0;
 pragma experimental ABIEncoderV2;
 
 interface IbaseGETNFT {
@@ -16,15 +17,12 @@ interface IbaseGETNFT {
         uint256 nftIndex
     ) external view returns (TicketData memory);
 
-    // function returnTicketData(
-    //     uint256 nftIndex
-    // ) external view returns(
-    //     TicketData memory _data);
 
     function primarySale(
         address destinationAddress, 
         address eventAddress, 
         uint256 primaryPrice,
+        uint256 basePrice,
         uint256 orderTime,
         string calldata ticketURI, 
         bytes32[] calldata ticketMetadata

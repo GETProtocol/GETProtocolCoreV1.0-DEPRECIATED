@@ -1,4 +1,5 @@
-pragma solidity ^0.6.2;
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.5.0 <0.7.0;
 pragma experimental ABIEncoderV2;
 
 import "./utils/Initializable.sol";
@@ -10,22 +11,33 @@ import "./interfaces/IeventMetadataStorage.sol";
 import "./interfaces/IgetEventFinancing.sol";
 import "./interfaces/IgetNFT_ERC721.sol";
 import "./interfaces/IEconomicsGET.sol";
+import "./interfaces/IticketFuelDepotGET.sol";
 
 import "./interfaces/IGETAccessControl.sol";
 
 
 contract getEventFinancing is Initializable, ContextUpgradeable {
-    IGETAccessControl public GET_BOUNCER;
-    IMetadataStorage public METADATA;
-    IEconomicsGET public ECONOMICS;
 
-    IbaseGETNFT public BASE;
-    IwrapGETNFT public wrapNFT;
+    IGETAccessControl private GET_BOUNCER;
+    IMetadataStorage private METADATA;
+    IEconomicsGET private ECONOMICS;
+    IbaseGETNFT private BASE;
+    IwrapGETNFT private wrapNFT;
+    IticketFuelDepotGET private DEPOT;
 
-    bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
+    string public constant contractName = "getEventFinancing";
+    string public constant contractVersion = "1";
+
+    bytes32 private constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
     bytes32 private constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
-    bytes32 public constant GET_ADMIN = keccak256("GET_ADMIN");
-    bytes32 public constant GET_GOVERNANCE = keccak256("GET_GOVERNANCE");
+    bytes32 private constant GET_ADMIN = keccak256("GET_ADMIN");
+
+    function _initialize_event_financing(
+        address address_bouncer
+        ) public virtual initializer 
+        {
+        GET_BOUNCER = IGETAccessControl(address_bouncer);
+        }
 
     struct LoanStruct {
         address event_address; // address of event (primary key)
@@ -42,9 +54,9 @@ contract getEventFinancing is Initializable, ContextUpgradeable {
         bool finalized_loan; // default = false
     }
 
-    mapping(address => LoanStruct) public allProposalLoans; // all loans that are still not published (no ERC20, no pool)
-    mapping(address => LoanStruct) public allActiveLoans;
-    mapping(address => LoanStruct) public allFinalizedLoans;
+    mapping(address => LoanStruct) private allProposalLoans; // all loans that are still not published (no ERC20, no pool)
+    mapping(address => LoanStruct) private allActiveLoans;
+    mapping(address => LoanStruct) private allFinalizedLoans;
 
     event fromCollaterizedInventory(
         uint256 nftIndex,
@@ -76,11 +88,7 @@ contract getEventFinancing is Initializable, ContextUpgradeable {
         address addressBase
     );
 
-    function initialize_event_financing(
-        address address_bouncer
-        ) public virtual initializer {
-        GET_BOUNCER = IGETAccessControl(address_bouncer);
-        }
+    // MODIFIERS 
 
     /**
      * @dev Throws if called by any account other than the GET Protocol admin account.
@@ -109,6 +117,7 @@ contract getEventFinancing is Initializable, ContextUpgradeable {
         _;
     }
 
+    // CONTRACT ADMINSTRATION
 
     function changeConfiguration(
         address newAddressBouncer,
@@ -140,10 +149,6 @@ contract getEventFinancing is Initializable, ContextUpgradeable {
         uint256 stakedUnderwriter,
         uint finalizedBy
     ) public onlyRelayer {
-
-        // TODO if publishedLoad == True, revert
-        // TODO if finalizedLoan == True, revert
-        // TODO if finalizedBy > now, revert
 
         LoanStruct storage ldata = allProposalLoans[eventAddress];
         ldata.event_address = eventAddress;
@@ -179,51 +184,6 @@ contract getEventFinancing is Initializable, ContextUpgradeable {
     }
 
 
-
-
-    /** DEPRECIATED
-    @dev mints getNFT to underwriterAddress
-    @dev function is called by primarySale
-    @notice only called if the events ticket inventory is collaterized
-    @notice this function requires an wrapping contract to be deployed
-    */
-    function mintColleterizedNFTTicket(
-        address underwriterAddress, // equiv to destinationAddress in primarySale
-        address eventAddress,
-        uint256 orderTime,
-        uint256 ticketDebt,
-        string calldata ticketURI,
-        bytes32[] calldata ticketMetadata
-    ) external onlyRelayer returns (uint256 nftIndex) {
-
-        // TODO Should only be callable by relayer of an underwriter
-
-        nftIndex = BASE.relayColleterizedMint(
-            eventAddress,  // 'to' address destinationAddress
-            eventAddress,  // eventAddress (the nft belongs to this adres)
-            ticketDebt, // value of ticket in currency
-            orderTime,
-            ticketURI,
-            ticketMetadata,
-            true // setAsideNFT is set to true
-        );
-
-        // TODO Add colleterization logic / wrapping logic
-
-        emit txMintUnderwriter(
-            underwriterAddress,
-            eventAddress,
-            ticketDebt,
-            ticketURI,
-            orderTime,
-            block.timestamp
-        );
-
-        return nftIndex;
-
-    }
-
-
     // Moves NFT from collateral contract adres to user 
     function collateralizedNFTSold(
         uint256 nftIndex,
@@ -232,18 +192,6 @@ contract getEventFinancing is Initializable, ContextUpgradeable {
         uint256 orderTime,
         uint256 primaryPrice
     ) external onlyFactory {
-
-        // TODO insert logic that creates debt for underwriter
-
-        // uint256 nftIndex = tokenOfOwnerByIndex(underwriterAddress, 0);
-        // require(_ticketInfo[nftIndex].valid == false, "_primaryCollateralTransfer - NFT INVALIDATED");
-        // require(ownerOf(nftIndex) == underwriterAddress, "_primaryCollateralTransfer - WRONG UNDERWRITER");     
-
-        // getNFTBase.relayerTransferFrom(
-        //     underwriterAddress, 
-        //     destinationAddress, 
-        //     nftIndex
-        // );
 
         emit fromCollaterizedInventory(
             nftIndex,

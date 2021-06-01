@@ -1,4 +1,5 @@
-pragma solidity ^0.6.2;
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.5.0 <0.7.0;
 pragma experimental ABIEncoderV2;
 
 import "./utils/Initializable.sol";
@@ -6,13 +7,33 @@ import "./utils/ContextUpgradeable.sol";
 import "./utils/SafeMathUpgradeable.sol";
 import "./interfaces/IbaseGETNFT.sol";
 
+import "./interfaces/IticketFuelDepotGET.sol";
+
 import "./interfaces/IGETAccessControl.sol";
 import "./interfaces/IEconomicsGET.sol";
 
 contract eventMetadataStorage is Initializable, ContextUpgradeable {
-    IGETAccessControl public GET_BOUNCER;
-    IEconomicsGET public ECONOMICS;
-    IbaseGETNFT public BASE;
+    IGETAccessControl private GET_BOUNCER;
+    IEconomicsGET private ECONOMICS;
+    IbaseGETNFT private BASE;
+    IticketFuelDepotGET private DEPOT;
+
+    string public constant contractName = "eventMetadataStorage";
+    string public constant contractVersion = "1";
+
+    bytes32 private constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
+    bytes32 private constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
+    bytes32 private constant GET_ADMIN = keccak256("GET_ADMIN");
+
+    function _initialize_metadata(
+      address address_bouncer,
+      address address_economics,
+      address address_fueldepot
+      ) public initializer {
+        GET_BOUNCER = IGETAccessControl(address_bouncer);
+        ECONOMICS = IEconomicsGET(address_economics);
+        DEPOT = IticketFuelDepotGET(address_fueldepot);
+    }
 
     using SafeMathUpgradeable for uint256;
 
@@ -33,12 +54,8 @@ contract eventMetadataStorage is Initializable, ContextUpgradeable {
         bool created;
     }
 
-    mapping(address => EventStruct) public allEventStructs;
-
-    address[] public eventAddresses;  
-
-    bytes32 private constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
-    bytes32 private constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
+    mapping(address => EventStruct) private allEventStructs;
+    address[] private eventAddresses;  
 
     event newEventRegistered(
       address indexed eventAddress,
@@ -60,14 +77,6 @@ contract eventMetadataStorage is Initializable, ContextUpgradeable {
         address baseAddress
     );
 
-    // TODO change bouncer name
-    function __initialize_metadata(
-      address address_bouncer,
-      address address_economics
-      ) public initializer {
-        GET_BOUNCER = IGETAccessControl(address_bouncer);
-        ECONOMICS = IEconomicsGET(address_economics);
-    }
 
   // MODIFIERS
 
@@ -89,8 +98,7 @@ contract eventMetadataStorage is Initializable, ContextUpgradeable {
         _;
     }
 
-
-    // FUNCTIONS
+    // CONTRACT CONFIGURATION
 
     function setAccessControl(
       address newAddressBouncer
@@ -102,9 +110,8 @@ contract eventMetadataStorage is Initializable, ContextUpgradeable {
           newAddressBouncer);
     }
 
-
     function configureBase(
-      address base_address) public onlyRelayer {
+      address base_address) public onlyAdmin {
 
         BASE = IbaseGETNFT(base_address);
 
@@ -125,6 +132,9 @@ contract eventMetadataStorage is Initializable, ContextUpgradeable {
         );
     }
 
+
+    // OPERATIONAL FUNCTIONS
+
     function registerEvent(
       address eventAddress,
       address integratorAccountPublicKeyHash,
@@ -139,7 +149,8 @@ contract eventMetadataStorage is Initializable, ContextUpgradeable {
       bool isPrivate
       ) public onlyRelayer {
 
-      uint256[2] memory _fees = ECONOMICS.chargeForStatechangeList(msg.sender,3);
+      // uint256 charged = DEPOT.chargeProtocolTax(nftIndexP);
+      // uint256[2] memory _fees = ECONOMICS.chargeForStatechangeList(msg.sender,3);
 
       address underwriterAddress = 0x0000000000000000000000000000000000000000;
 
@@ -162,12 +173,13 @@ contract eventMetadataStorage is Initializable, ContextUpgradeable {
 
       emit newEventRegistered(
         eventAddress,
-        _fees[1],
+        1000,
         eventName,
         block.timestamp
       );
     }
 
+    // VIEW FUNCTIONS
 
     /** returns the EOA or contract address that has colleterized the NFT
     @param eventAddress EOA address of the event - primary key assinged by GETcustody
