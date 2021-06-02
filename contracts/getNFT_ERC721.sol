@@ -61,6 +61,7 @@ contract getNFT_ERC721 is Initializable, ERC721UpgradeableGET {
 
     function __ERC721PresetMinterPauserAutoId_init_unchained() internal initializer {
         _setBaseURI("www.get-protocol.io");
+        _tokenIdTracker.increment();
     }
 
     using CountersUpgradeable for CountersUpgradeable.Counter;
