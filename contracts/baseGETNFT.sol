@@ -266,6 +266,8 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
             
             nftIndexP = GET_ERC721.tokenOfOwnerByIndex(underwriterAddress, 0);
 
+            require(nftIndexP > 0, "NO_INDEX");
+
             require(isNFTSellable(nftIndexP, underwriterAddress), "RE/SALE_ERROR");
 
             uint256 charged = DEPOT.chargeProtocolTax(nftIndexP);
@@ -306,11 +308,12 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
                     destinationAddress,
                     eventAddress,
                     primaryPrice,
-                    orderTime,
                     ticketURI,
                     ticketMetadata,
                     false 
                 );
+
+                require(nftIndexP > 0, "PRIMARYMINT_NO_INDEX");
 
                 // fuel the tank of the NFT, passing on the base price
                 uint256 reserved = ECONOMICS.fuelBackpackTicket(
@@ -353,6 +356,8 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
 
         uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0);
 
+        require(nftIndex > 0, "SECONDARY_NO_INDEX");
+
         uint256 charged = DEPOT.chargeProtocolTax(nftIndex);
 
         require(charged > 0, "SECONDARY_NO_GET_FEE_PAID");
@@ -387,6 +392,8 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
         ) external onlyRelayer {
         
         uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0);
+
+        require(nftIndex > 0, "SCAN_NO_INDEX");
         
         uint256 charged = DEPOT.chargeProtocolTax(nftIndex);
 
@@ -420,9 +427,11 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
         
         uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0);
 
+        require(nftIndex > 0, "INVALIDATE_NO_INDEX");
+
         uint256 charged = DEPOT.chargeProtocolTax(nftIndex);
         
-        require(charged > 0, "IVALIDATE_NO_GET_FEE_PAID");
+        require(charged > 0, "INVALIDATE_NO_GET_FEE_PAID");
         require(_ticket_data[nftIndex].valid == true, "DOUBLE_INVALIDATION");
         
         _ticket_data[nftIndex].valid = false;
@@ -446,6 +455,8 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
         uint256 orderTime) external onlyRelayer {
 
         uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0); // fetch the index of the NFT
+
+        require(nftIndex > 0, "CLAIM_NO_INDEX");
 
         uint256 charged = DEPOT.chargeProtocolTax(nftIndex);
 
@@ -473,7 +484,7 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
     @param destinationAddress EOA address of the event that will receive getNFT for colleterization
     @param eventAddress EOA address of the event (GETcustody)
     @param strikeValue price that will be paid by primary ticket buyer
-    @param basePrice TODO
+    @param basePrice price that can be used to charge a dynamic GET fee over a tickets base price 
     @param orderTime timestamp the statechange was triggered in the system of the integrator
     @param ticketURI string stored in metadata of NFT
     @param ticketMetadata additional meta data about a sale or ticket (like seating, notes, or reslae rukes) stored in unstructed list 
@@ -497,7 +508,6 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
             eventAddress, // TAKE NOTE MINTING TO EVENT ADDRESS
             eventAddress,
             strikeValue,
-            orderTime,
             ticketURI,
             ticketMetadata,
             true
@@ -530,7 +540,6 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
     @param destinationAddress EOA address that is the 'future owner' of a getNFT
     @param eventAddress EOA address of the event - primary key assinged by GETcustody
     @param issuePrice the price the getNFT will be offered or collaterized at
-    @param orderTime timestamp the statechange was triggered in the system of the integrator
     @param ticketURI string stored in metadata of NFT
     @param ticketMetadata additional meta data about a sale or ticket (like seating, notes, or reslae rukes) stored in unstructed list 
     @param setAsideNFT bool if a getNFT has been securitized 
@@ -539,7 +548,6 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
         address destinationAddress, 
         address eventAddress, 
         uint256 issuePrice,
-        uint256 orderTime,
         string memory ticketURI,
         bytes32[] memory ticketMetadata,
         bool setAsideNFT
@@ -549,6 +557,8 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
             destinationAddress,
             ticketURI
         );
+
+        require(nftIndexM > 0, "MINT_NO_INDEX");
 
         TicketData storage tdata = _ticket_data[nftIndexM];
         tdata.ticket_metadata = ticketMetadata;

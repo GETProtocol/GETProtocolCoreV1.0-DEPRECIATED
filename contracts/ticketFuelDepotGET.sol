@@ -163,10 +163,9 @@ contract ticketFuelDepot is Initializable  {
      */
     function swipeCollected() public returns(uint256) {
 
-        // uint256 _depotbal = FUELTOKEN.balanceOf(address(this));
         uint256 _preswipebal = GETCollectedDepot;
 
-        require(GETCollectedDepot >= 0, "NOTHING_TO_SWIPE");
+        require(GETCollectedDepot > 0, "NOTHING_TO_SWIPE");
 
         require(
             FUELTOKEN.transfer(
