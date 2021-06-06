@@ -137,6 +137,7 @@ contract getNFT_ERC721 is Initializable, ERC721UpgradeableGET {
         ) internal virtual override(ERC721UpgradeableGET) {
         super._beforeTokenTransfer(from, to, tokenId);
     }
+
     uint256[49] private __gap;
 
 }

@@ -8,14 +8,20 @@ import "./interfaces/IERC20.sol";
 import "./interfaces/IGETAccessControl.sol";
 import "./interfaces/IEconomicsGET.sol";
 import "./utils/SafeMathUpgradeable.sol";
+import "./interfaces/IgetNFT_ERC721.sol";
 
 import "./utils/EnumerableSetUpgradeable.sol";
 import "./utils/EnumerableMapUpgradeable.sol";
 
 contract ticketFuelDepot is Initializable  {
     IGETAccessControl private GET_BOUNCER;
-    IERC20 private FUELTOKEN;
+    IERC20 public ACTIVE_FUELTOKEN;
     IEconomicsGET private ECONOMICS;
+    IGET_ERC721 private GET_ERC721;
+
+
+    // if this cool is set to true, the fuel token contract address cannot be changed by the 'changeFuelAddress' function - effectively locking the fuel token to this instance/proxy of the contract. Making it significantly harder to change the fuel token to a ERC20 that doesn't require capital to purchase. 
+    bool public isFuelLocked;
 
     using SafeMathUpgradeable for uint256;
 
@@ -31,41 +37,48 @@ contract ticketFuelDepot is Initializable  {
         address address_bouncer,
         address fueltoken_address,
         address new_collectAddress,
+        address address_erc721,
         uint256 price_getusd
         ) public initializer {
             GET_BOUNCER = IGETAccessControl(address_bouncer);
-            FUELTOKEN = IERC20(fueltoken_address);
+            ACTIVE_FUELTOKEN = IERC20(fueltoken_address);
             collectAddress = new_collectAddress;
             priceGETUSD = price_getusd;
-            globalGET = 3000;
+            GET_ERC721 = IGET_ERC721(address_erc721);
+            baseRateGlobal = 3000;
+            isFuelLocked = false;
         }
 
-    // address of the economics contract
-    address private economicGETAddress;
+    // total amount of GET that is held by all NFTs that are still on the balances in the backpacks
+    mapping(address => uint256) private balanceAllBackpacks;
 
-    // total amount of GET that is held by all NFTs
-    uint256 private balanceDepotTanks;
-
-    // total amount of GET that has been collected by the depot
-    uint256 private GETCollectedDepot;
+    // total amount of GET that has been collected by the depot, by charging the protocol tax for performing a statechange
+    mapping(address => uint256) private GETCollectedDepot;
     
     // address that will receive all the sweeped GET, either a contract (like feeCollector) or it could be 
     address private collectAddress;
     
-    uint256 private priceGETUSD;
+    // TODO add descritpion
+    uint256 public priceGETUSD;
 
-    uint256 private globalGET;
+    // TODO add description
+    uint256 public baseRateGlobal;
 
     // data struct that stores the amount of GET that is in the rucksack of an NFT
     // NFTINDEX 23111 => 33432 wei GET in tank etc
     // NFTINDEX 99122 => 943 wei GET in tank etc
-    mapping (uint256 => uint256) private nftBackpackMap;
+    mapping (address => mapping(uint256 => uint256)) private nftBackpackBalance;
+    mapping (uint256 => address) private nftFuelRegistery;    
+
+    // data struct with similar function as nftBackpackMap (above) but allowing for several fuel token addresses - this is needed as 
+    // mapping (address => mapping(uint256 => uint256)) private nftBackpackBalance;
 
     // used to store if an NFT exsits
     mapping (uint256 => bool) private NFTIndexBool;
 
     event depotSwiped(
-        uint256 totalAmountSwiped
+        uint256 totalAmountSwiped,
+        address fuelAddress
     );
 
     event NewFeeCollecterAddressSet(
@@ -74,7 +87,8 @@ contract ticketFuelDepot is Initializable  {
 
     event statechangeTaxed(
         uint256 nftIndex,
-        uint256 GETTaxedAmount
+        uint256 GETTaxedAmount,
+        address fuelAddress
     );
 
     event fuelAddressChanged(
@@ -83,12 +97,17 @@ contract ticketFuelDepot is Initializable  {
 
     event BackPackFueled(
         uint256 nftIndexFueled,
-        uint256 amountToBackpack
+        uint256 amountToBackpack,
+        address fuelAddress
     );
 
     event nftTankWiped(
         uint256 nftIndex,
         uint256 amountDeducted
+    );
+
+    event fuelLocked(
+        address lockedFuelTokenAddress
     );
 
     // MODIFIERS 
@@ -146,38 +165,70 @@ contract ticketFuelDepot is Initializable  {
 
     }
 
-    function editFuelAddress(
-        address newFuelToken
+    /**
+    @param newFuelTokenAddress ERC20 token address that should be used as the new type of fuel
+    */
+    function editDefaultFuelAddress(
+        address newFuelTokenAddress
     ) external onlyAdmin {
-        FUELTOKEN = IERC20(newFuelToken);
+
+        require(isFuelLocked == false, "FUEL_LOCKED");
+
+        ACTIVE_FUELTOKEN = IERC20(newFuelTokenAddress);
 
         emit fuelAddressChanged(
-            newFuelToken
+            newFuelTokenAddress
+        );
+    }
+
+    /**
+    @notice this function can only be called once, there is no way to undo this!
+    */
+    function lockFuelAddress() public onlyGovernance {
+
+        isFuelLocked = true;
+
+        emit fuelLocked(
+            address(ACTIVE_FUELTOKEN)
         );
     }
 
     // GET PROTOCOL OPERATIONAL FUNCTIONS
 
     /** moves all the collected tokens to the collectAddress
+    @param fuelAddress address of the ERC20 token you want to swipe the balances of to the collector address
     @notice anybody can call this function
      */
-    function swipeCollected() public returns(uint256) {
+    function swipeCollected(
+        address fuelAddress
+        ) public returns(uint256) {
 
-        uint256 _preswipebal = GETCollectedDepot;
+        IERC20 FUEL = IERC20(fuelAddress);
 
-        require(GETCollectedDepot > 0, "NOTHING_TO_SWIPE");
+        // if (swipeBalance) {
+        //     uint256 _preswipebal = GETCollectedDepot;
+        // } else {
+        //     uint256 _preswipebal = ACTIVEFUEL.balanceOf(address(this));
+        // }
+
+        uint256 _preswipebal = GETCollectedDepot[fuelAddress];
+
+        require(_preswipebal > 0, "NOTHING_TO_SWIPE");
 
         require(
-            FUELTOKEN.transfer(
+            FUEL.transfer(
                 collectAddress,
                 _preswipebal),
             "SWIPE_FAILED"
         );
 
-        // set balance to zero
-        GETCollectedDepot = 0; 
+        // set balance to zero TODO FIX
+        GETCollectedDepot[fuelAddress] = 0;  
 
-        emit depotSwiped(_preswipebal);
+        emit depotSwiped(
+            _preswipebal,
+            fuelAddress
+            );
 
         return _preswipebal;
 
@@ -193,28 +244,33 @@ contract ticketFuelDepot is Initializable  {
         uint256 amountBackpack
     ) external onlyFactory returns (bool) {
 
-        require(nftBackpackMap[nftIndex] == 0, "NFT_ALREADY_FUELED");
+        require(amountBackpack > 0, "FUEL_AMOUNT_INVALID");
 
-        require(
-            FUELTOKEN.transferFrom(
+        require(nftBackpackBalance[address(ACTIVE_FUELTOKEN)][nftIndex] == 0, "NFT_ALREADY_FUELED");
+
+        require( // requires token approval
+            ACTIVE_FUELTOKEN.transferFrom(
                 msg.sender, 
                 address(this),
                 amountBackpack),
             "FUELBACKPACK_FAILED"
         );
 
-        // add amount transferred to NFT
-        nftBackpackMap[nftIndex] = amountBackpack;
+        // add amount transferred to NFT backpac balance
+        nftBackpackBalance[address(ACTIVE_FUELTOKEN)][nftIndex] = amountBackpack;
 
         // register that the NFT exists
         NFTIndexBool[nftIndex] = true;
 
-        // add amount transferred to total collected
-        balanceDepotTanks += amountBackpack;
+        // add amount transferred to total collected by depot contract
+        balanceAllBackpacks[address(ACTIVE_FUELTOKEN)] += amountBackpack;
+
+        nftFuelRegistery[nftIndex] = address(ACTIVE_FUELTOKEN);
 
         emit BackPackFueled(
             nftIndex,
-            amountBackpack
+            amountBackpack,
+            address(ACTIVE_FUELTOKEN)
         );
 
         return true;
@@ -223,152 +279,118 @@ contract ticketFuelDepot is Initializable  {
 
 
     /**
-    @dev this function charges the globalGET rate as set in the contract
+    @dev this function charges the baseRateGlobal rate as set in the contract
     @param nftIndex uniqe id of NFT that needs to be taxed
+    @notice no tokens will move due to a taxation event. A taxation is handled with internal bookkeeping, the swipe/wipe function resets the internal bookkeeping and settles on-chain the collected GET to the burn address or treasurya
      */
     function chargeProtocolTax(
         uint256 nftIndex
     ) external onlyFactory returns(uint256) {
 
-        // fetch balance of NFT by nftIndex
-        uint256 _current = nftBackpackMap[nftIndex];
+        IERC20 FUEL = IERC20(nftFuelRegistery[nftIndex]);
 
+        // fetch backpack balance of NFT by nftIndex
+        uint256 _current = nftBackpackBalance[address(FUEL)][nftIndex];
+
+        // backpack has no balance, needs to be fueled, fail tx!
         require(_current > 0, "NO_BALANCE_NO_INDEX");
 
-        // multiply tax rate by GET left in tank
-        uint256 _deduct = _current.mul(globalGET).div(10000);
+        // multiply tax rate by GET in backpack
+        uint256 _deduct = _current.mul(baseRateGlobal).div(10000);
 
-        // TOOD look into if there is a better way
-        nftBackpackMap[nftIndex] -= _deduct;
+        // deduct the tax from the internal backpack balance of the nft
+        nftBackpackBalance[address(FUEL)][nftIndex] -= _deduct;
         
-        // add to the total fee fount
-        GETCollectedDepot += _deduct;
+        // internal bookkeeping, add the deducted amount to the total collected balance
+        GETCollectedDepot[address(FUEL)] += _deduct;
         
-        // deduct from the total balance left
-        balanceDepotTanks -= _deduct;
+        // internal bookkeeping deduct from the total balance left in all backpacks 
+        balanceAllBackpacks[address(FUEL)] -= _deduct;
 
         emit statechangeTaxed(
             nftIndex,
-            _deduct
+            _deduct,
+            address(FUEL)
         );
 
         return _deduct;
 
     }
 
-    /** set balance of NFT to zero
-    @param nftIndex unique Id of NFT that needs to have its balance wiped
-     */
-    function whipeNFTTankIndex(
+
+    // VIEW FUNCTIONS
+
+    function backpackBalanceOf(
         uint256 nftIndex
-    ) public onlyAdmin {
-
-        // TODO add check if NFT exists at all with a function
-
-        // fetch current balance of NFT
-        uint256 _current = nftBackpackMap[nftIndex];
-
-        // set NFT balance to 0 GET (empty tank)
-        nftBackpackMap[nftIndex] = 0;
-
-        // add the whiped amount to the collected balance 
-        GETCollectedDepot += _current;        
-
-        // remove the whiped amount from the total GET on NFTs
-        balanceDepotTanks -= _current;
-
-        emit nftTankWiped(
-            nftIndex,
-            _current
-        );
-
+    ) public view returns(uint256) {
+        return nftBackpackBalance[nftFuelRegistery[nftIndex]][nftIndex];
     }
 
-    /** set balance of NFT to zero
-    @param nftIndex unique Id of NFT that needs to have its balance deducted
-    @param amountDeduct amount of GET that needs to be deducted
-     */
-    function deductNFTTankIndex(
-        uint256 nftIndex,
-        uint256 amountDeduct
-    ) public onlyAdmin {
+    function getActiveFuel() public view returns(address) {
+        return address(ACTIVE_FUELTOKEN);
+    }
 
-        // TODO add check if NFT exists at all with a function
 
-        // fetch current balance of NFT
-        uint256 _current = nftBackpackMap[nftIndex];
-
-        require(_current >= amountDeduct, "BALANCE_TO_LOW_DEDUCT");
-        require(GETCollectedDepot >= amountDeduct, "TOO_LITTLE_COLLECTED");
-
-        // set NFT balance to 0 GET (empty tank)
-        nftBackpackMap[nftIndex] -= amountDeduct;
-
-        // added from the collected balance (this is a bit hacky)
-        GETCollectedDepot -= amountDeduct;        
-
-        // add the deducted amount to the total on tank balance
-        balanceDepotTanks += amountDeduct;
-
-        emit nftTankWiped(
-            nftIndex,
-            amountDeduct
-        );
-
-    }    
-
-    // /**
-    // @param nftIndex unique NFT id of the ticket that needs to be refueled
-    // @param fuelAmount total balance of GET that is 'correct
+    // /** set balance of NFT to zero
+    // @param nftIndex unique Id of NFT that needs to have its balance wiped
     //  */
-    // function topUpBackpackTo(  
-    //     uint256 nftIndex,
-    //     uint256 newBalance
+    // function wipeNFTTankIndex(
+    //     uint256 nftIndex
     // ) public onlyAdmin {
 
-    //     // what is the current balance
+    //     // TODO add check if NFT exists at all with a function
 
-    //     // what is the difference between current and target
+    //     // fetch current balance of NFT
+    //     uint256 _current = nftBackpackMap[nftIndex];
 
-    //     // if is more than target, deduct and send to contract
+    //     // set NFT balance to 0 GET (empty tank)
+    //     nftBackpackMap[nftIndex] = 0;
 
-    //     // else, less than target, add if possible from collected fee balances
+    //     // add the wipe amount to the collected balance 
+    //     GETCollectedDepot += _current;        
 
-    //     // return amount added or deducted in event
+    //     // remove the wipe amount from the total GET on NFTs
+    //     balanceDepotTanks -= _current;
+
+    //     emit nftTankWiped(
+    //         nftIndex,
+    //         _current
+    //     );
 
     // }
 
-    // /** charges a certain cut of the backpack balance of an NFT and moves it to the collected state/address
-    // @notice the charging of the GET is an internal accounting trick. In order to optimize for gas usage the sweeping of the collected GET will be done with the 'sweepGETToTreasury' function.
-    // @param nftIndex unique indentifier of getNFT in the base contract
-    // @param stateRate percentage that will be removed from the balance of the backpack
+    // /** set balance of NFT to zero
+    // @param nftIndex unique Id of NFT that needs to have its balance deducted
+    // @param amountDeduct amount of GET that needs to be deducted
     //  */
-    // function _taxBackpack(
+    // function deductNFTTankIndex(
     //     uint256 nftIndex,
-    //     uint256 amountReduced
-    // ) internal {
+    //     uint256 amountDeduct
+    // ) public onlyAdmin {
 
-    //     // check if NFTIndex exists
-    //     require(NFTIndexBool[nftIndex] == true, "NFT_DOESNT_EXIST");
+    //     // check if nftIndex exists
+    //     require(GET_ERC721.isNftIndex(nftIndex), "ECONOMICS_INDEX_UNKNOWN");
 
-    //     // check if there is any balance
-    //     require(nftBackpackMap[nftIndex] > amountReduced, "BALANCE_TOO_LOW_BACKPACK");
+    //     // fetch current balance of NFT
+    //     uint256 _current = nftBackpackMap[nftIndex];
 
-    //     nftBackpackMap[nftIndex] -= amountReduced;
+    //     require(_current >= amountDeduct, "BALANCE_TO_LOW_DEDUCT");
+    //     require(GETCollectedDepot >= amountDeduct, "TOO_LITTLE_COLLECTED");
 
-    //     // recalculate total
-    //     GETCollectedDepot += amountReduced;
+    //     // set NFT balance to 0 GET (empty tank)
+    //     nftBackpackMap[nftIndex] -= amountDeduct;
 
-    // }
+    //     // added from the collected balance (this is a bit hacky)
+    //     GETCollectedDepot -= amountDeduct;        
 
-    // /**
-    //  * @dev Throws if called by a relayer/ticketeer that has not been registered.
-    //  */
-    // modifier onlyKnownRelayer() {
-    //     require(
-    //         relayerRegistry[msg.sender] == true, "RELAYER_NOT_REGISTERED");
-    //     _;
-    // }
+    //     // add the deducted amount to the total on tank balance
+    //     balanceDepotTanks += amountDeduct;
 
+    //     emit nftTankWiped(
+    //         nftIndex,
+    //         amountDeduct
+    //     );
+
+    // }    
 
 }

@@ -1,9 +1,7 @@
 // File: contracts/utils/EnumerableSet.sol
 
 // SPDX-License-Identifier: MIT
-
-pragma solidity ^0.6.0;
-
+pragma solidity >=0.5.0 <0.7.0;
 /**
  * @dev Library for managing
  * https://en.wikipedia.org/wiki/Set_(abstract_data_type)[sets] of primitive
@@ -244,11 +242,6 @@ library EnumerableSet {
     }
 }
 
-// File: contracts/utils/Address.sol
-
-// SPDX-License-Identifier: MIT
-
-pragma solidity ^0.6.2;
 
 /**
  * @dev Collection of functions related to the address type
@@ -436,11 +429,6 @@ library Address {
     }
 }
 
-// File: contracts/GSN/Context.sol
-
-// SPDX-License-Identifier: MIT
-
-pragma solidity ^0.6.0;
 
 /*
  * @dev Provides information about the current execution context, including the
@@ -462,12 +450,6 @@ abstract contract Context {
         return msg.data;
     }
 }
-
-// File: contracts/access/AccessControl.sol
-
-// SPDX-License-Identifier: MIT
-
-pragma solidity ^0.6.0;
 
 
 
@@ -682,11 +664,7 @@ abstract contract AccessControl is Context {
     }
 }
 
-// File: contracts/token/ERC20/IERC20.sol
 
-// SPDX-License-Identifier: MIT
-
-pragma solidity ^0.6.0;
 
 /**
  * @dev Interface of the ERC20 standard as defined in the EIP.
@@ -761,12 +739,6 @@ interface IERC20 {
      */
     event Approval(address indexed owner, address indexed spender, uint256 value);
 }
-
-// File: contracts/math/SafeMath.sol
-
-// SPDX-License-Identifier: MIT
-
-pragma solidity ^0.6.0;
 
 /**
  * @dev Wrappers over Solidity's arithmetic operations with added overflow
@@ -923,12 +895,6 @@ library SafeMath {
         return a % b;
     }
 }
-
-// File: contracts/token/ERC20/ERC20.sol
-
-// SPDX-License-Identifier: MIT
-
-pragma solidity ^0.6.0;
 
 
 
@@ -1232,12 +1198,6 @@ contract ERC20 is Context, IERC20 {
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual { }
 }
 
-// File: contracts/token/ERC20/ERC20Burnable.sol
-
-// SPDX-License-Identifier: MIT
-
-pragma solidity ^0.6.0;
-
 
 
 /**
@@ -1273,12 +1233,6 @@ abstract contract ERC20Burnable is Context, ERC20 {
         _burn(account, amount);
     }
 }
-
-// File: contracts/utils/Pausable.sol
-
-// SPDX-License-Identifier: MIT
-
-pragma solidity ^0.6.0;
 
 
 /**
@@ -1366,11 +1320,7 @@ contract Pausable is Context {
     }
 }
 
-// File: contracts/token/ERC20/ERC20Pausable.sol
 
-// SPDX-License-Identifier: MIT
-
-pragma solidity ^0.6.0;
 
 
 
@@ -1396,12 +1346,6 @@ abstract contract ERC20Pausable is ERC20, Pausable {
     }
 }
 
-// File: contracts/presets/ERC20PresetMinterPauser.sol
-
-// SPDX-License-Identifier: MIT
-
-pragma solidity ^0.6.0;
-
 
 /**
  * @dev {ERC20} token, including:
@@ -1417,11 +1361,11 @@ pragma solidity ^0.6.0;
  * roles, as well as the default admin role, which will let it grant both minter
  * and pauser roles to other accounts.
  */
-contract MockBALLP is Context, AccessControl, ERC20Burnable, ERC20Pausable {
+contract MockGET is Context, AccessControl, ERC20Burnable, ERC20Pausable {
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-    string public _name = "trancheTokens GET Protocol - LP BAL";
-    string public _symbol = "TRANCHE";
+    string public _name = "GET Protocol - ticket fuel token (GET)";
+    string public _symbol = "xGET";
 
     /**
      * @dev Grants `DEFAULT_ADMIN_ROLE`, `RELAYER_ROLE` and `PAUSER_ROLE` to the

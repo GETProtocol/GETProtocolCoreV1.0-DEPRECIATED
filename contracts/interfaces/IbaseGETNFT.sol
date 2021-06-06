@@ -47,7 +47,7 @@ interface IbaseGETNFT {
         address originAddress, 
         address destinationAddress,
         uint256 orderTime,
-        uint256 secondaryPrice) external;
+        uint256 secondaryPrice) external returns(uint256);
 
     function scanNFT(
         address originAddress,
@@ -79,4 +79,14 @@ interface IbaseGETNFT {
           bool _setAsideNFT,
           uint256[] memory _prices_sold
       );
+
+    function _mintGETNFT(
+        address destinationAddress, 
+        address eventAddress, 
+        uint256 issuePrice,
+        string calldata ticketURI,
+        bytes32[] calldata ticketMetadata,
+        bool setAsideNFT
+        ) external returns(uint256);
+
 }

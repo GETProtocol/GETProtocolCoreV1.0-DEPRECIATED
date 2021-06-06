@@ -8,6 +8,7 @@ import "./interfaces/IERC20.sol";
 import "./interfaces/IGETAccessControl.sol";
 import "./interfaces/IEconomicsGET.sol";
 import "./interfaces/IticketFuelDepotGET.sol";
+import "./interfaces/IgetNFT_ERC721.sol";
 
 import "./utils/SafeMathUpgradeable.sol";
 
@@ -23,6 +24,7 @@ contract economicsGET is Initializable {
     IERC20 public FUELTOKEN;
     IEconomicsGET private ECONOMICS;
     IticketFuelDepotGET private DEPOT;
+    IGET_ERC721 private GET_ERC721;
 
     using SafeMathUpgradeable for uint256;
 
@@ -36,19 +38,24 @@ contract economicsGET is Initializable {
 
     function _initialize_economics(
         address address_bouncer,
-        address fueltoken_address,
         address depot_address,
+        address erc721_address,
         uint256 price_getusd
         ) public initializer {
             GET_BOUNCER = IGETAccessControl(address_bouncer);
-            FUELTOKEN = IERC20(fueltoken_address);
             DEPOT = IticketFuelDepotGET(depot_address);
+            GET_ERC721 = IGET_ERC721(erc721_address);
             priceGETUSD = price_getusd;
+
+            FUELTOKEN = IERC20(DEPOT.getActiveFuel());
+
+            freeEventRate = 100;
         }
 
     /**
     @param depotAddress the contract address of the depot contract that needs to be approved for token transfer
-    this function allows to let the depot contract move tokens owned by the econimics address. 
+    this function allows to let the depot contract move tokens owned by the econimics address.
+    @param approvalAmount ERC20 approval amount
     @notice this function will allow the depot contract to move/subtract tokens from the ticketeers that is topped up on the economics contract
      */
     function setContractAllowance(
@@ -58,32 +65,46 @@ contract economicsGET is Initializable {
         FUELTOKEN.approve(depotAddress, approvalAmount);
     }
 
-    address private ticketFuelDepotAddress;
+    function setFreeEventRate(
+        uint256 newFreeRate
+    ) public onlyAdmin {
+        freeEventRate = newFreeRate;
+
+        // TODO emit event
+    }
+
+    // technically function could be public
+    function syncFuelToken() public onlyAdmin {
+        FUELTOKEN = IERC20(DEPOT.getActiveFuel());
+
+        // TODO emit event
+    }
+
+    // address that will receive all the GET on the contract
     address private emergencyAddress;
 
-    // temporary static value of GET denominated in USD
+    // flat rate in usd that will be used for free events (as these have a base price of 0)
+    uint256 private freeEventRate;
+
+    // temporary static value of GET denominated in USD, used for the calculation on how much GET is required on a certain ticket/NFT
     uint256 private priceGETUSD;
 
-    // baseRate is the percentage amount (so 0.001) for example, 
+    // baseRate is a percentage amount that needs to be provided in GET to fuel a complete event cycle in infinity.
     struct EconomicsConfig { 
+        string ticketeerName;
+        address ticketeerMasterWallet;
         uint256 baseRate;
         bool isConfigured;
-        uint256 timestampStarted; // blockheight of when the config was set
-        uint256 timestampEnded; // is 0 if economics confis is still active
     }
 
     // mapping from relayer address to economics configs (that are active)
     mapping(address => EconomicsConfig) private allConfigs;
 
-    // storage of fee old configs, for historical analysis
-    EconomicsConfig[] private oldConfigs;
-
     // mapping from relayer address to GET/Fuel balance (internal fuel balance)
     mapping(address => uint256) private relayerBalance;
-
-    // TODO check if it defaults to false for unknwon addresses.
-    mapping(address => bool) private relayerRegistry;
     
+    // EVENTS ECONOMICS GET
+
     event ticketeerCharged(
         address indexed ticketeerRelayer, 
         uint256 indexed chargedFee
@@ -117,7 +138,8 @@ contract economicsGET is Initializable {
     event coreAddressesEdit(
         address newBouncerSet,
         address newFuelSet,
-        address newDepotSet
+        address newDepotSet,
+        address newERC721
     );
 
     event priceGETChanged(
@@ -136,7 +158,7 @@ contract economicsGET is Initializable {
      */
     modifier onlyAdmin() {
         require(
-            GET_BOUNCER.hasRole(GET_ADMIN, msg.sender), "CALLER_NOT_ADMIN");
+            GET_BOUNCER.hasRole(GET_ADMIN, msg.sender), "ECONOMICS_CALLER_NOT_ADMIN");
         _;
     }
 
@@ -145,7 +167,7 @@ contract economicsGET is Initializable {
      */
     modifier onlyRelayer() {
         require(
-            GET_BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "CALLER_NOT_RELAYER");
+            GET_BOUNCER.hasRole(RELAYER_ROLE, msg.sender), "ECONOMICS_CALLER_NOT_RELAYER");
         _;
     }
 
@@ -154,17 +176,16 @@ contract economicsGET is Initializable {
      */
     modifier onlyGovernance() {
         require(
-            GET_BOUNCER.hasRole(GET_GOVERNANCE, msg.sender), "CALLER_NOT_GOVERNANCE");
+            GET_BOUNCER.hasRole(GET_GOVERNANCE, msg.sender), "ECONOMICS_CALLER_NOT_GOVERNANCE");
         _;
     }
-
 
     /**
      * @dev Throws if called by any account other than a GET Protocol governance address.
      */
     modifier onlyFactory() {
         require(
-            GET_BOUNCER.hasRole(FACTORY_ROLE, msg.sender), "CALLER_NOT_FACTORY EC");
+            GET_BOUNCER.hasRole(FACTORY_ROLE, msg.sender), "ECONOMICS_CALLER_NOT_FACTORY");
         _;
     }
 
@@ -174,24 +195,41 @@ contract economicsGET is Initializable {
      */
     modifier onlyKnownRelayer() {
         require(
-            relayerRegistry[msg.sender] == true, "RELAYER_NOT_REGISTERED");
+            allConfigs[msg.sender].isConfigured == true, "ECONOMICS_RELAYER_NOT_REGISTERED");
         _;
     }
 
+    // CONFIGURATION
 
     function editCoreAddresses(
         address newBouncerAddress,
-        address newFuelAddress,
-        address newDepotAddress
+        address newDepotAddress,
+        address newERC721Address
     ) external onlyAdmin {
         GET_BOUNCER = IGETAccessControl(newBouncerAddress);
-        FUELTOKEN = IERC20(newFuelAddress);
         DEPOT = IticketFuelDepotGET(newDepotAddress);
+        GET_ERC721 = IGET_ERC721(newERC721Address);
+
+        FUELTOKEN = FUELTOKEN = IERC20(DEPOT.getActiveFuel());
 
         emit coreAddressesEdit(
             newBouncerAddress,
-            newFuelAddress,
-            newDepotAddress
+            address(FUELTOKEN),
+            newDepotAddress,
+            newERC721Address
+        );
+    }
+
+    /** set the price used by the contract to price GET in usd
+    @param newGETPrice new GETUSD price used to calculate amont of GET needed in the rucksack of an NFT
+     */
+    function setPriceGETUSD(
+        uint256 newGETPrice
+    ) public onlyAdmin {
+        priceGETUSD = newGETPrice;
+        
+        emit priceGETChanged(
+            newGETPrice
         );
     }
 
@@ -203,19 +241,28 @@ contract economicsGET is Initializable {
     treasuryL: 0.03 = 3% of the primary value in USD is put in the GET backpack
     isConfigured: bool tracking if a certain relayers GET usage contract are configured
      */
+
+
+    /**
+    @param relayerAddress address the ticketeer sends transcations, used for identifiaction and billing
+    @param newTicketeerName the slug/brand name the ticketeer is known by publically, for easy lookup
+    @param masterWallet if an relayeraddress is seeded from a 'masterRelayer' this variable is populated, otherwise it will have the burn address
+    @param newBaseRate the ratio that will be used to calculate the GET backpack from the basePrice of an getNFT
+     */
     function setEconomicsConfig(
         address relayerAddress,
-        EconomicsConfig memory EconomicsConfigNew
+        string memory newTicketeerName,
+        address masterWallet,
+        uint256 newBaseRate
     ) public onlyAdmin {
 
-        // store config in mapping
-        allConfigs[relayerAddress] = EconomicsConfigNew;
-
-        // set the blockheight of starting block
-        allConfigs[relayerAddress].timestampStarted = block.timestamp;
-        
-        // mark storage slot as being occupied
-        allConfigs[relayerAddress].isConfigured = true;
+        // store config in mapping, this will overwrite previously stored configurations by the same relayerAddress
+        allConfigs[relayerAddress] = EconomicsConfig(
+            newTicketeerName,
+            masterWallet,
+            newBaseRate,
+            true
+        );
 
         emit configChanged(
             relayerAddress
@@ -223,12 +270,16 @@ contract economicsGET is Initializable {
 
     }
 
+    // OPERATIONAL FUNCTION GET ECONOMICS 
+
     /**
-    @notice this contract can only be called by baseNFT contract via the primarySale funciton
+    @notice this contract can only be called by baseNFT contract via the primarySale function
+    @dev it is not allowed for an getNFT ticket to not use any GET. If an event is free, a extremely low basePrice should be used. The contract handles this edgecase by replacing the basePrice of a free event with a standard rate.
     @notice will only run if a ticketeer has sufficient GET balance - otherwise will fail
     @param nftIndex unique indentifier of getNFT as 'to be minted' by baseNFT contract
-    @param relayerAddress address of the ticketeer / integrator that is requesting this NFT mint
-    @param basePrice base value in USD of the NFT that is going to be offered
+    @param relayerAddress address of the ticketeer / integrator that is requesting this NFT mint, note that this is the address of the relayer that has called the baseNFT contract, this function is called by 
+    @param basePrice base value in USD of the NFT that is going to be minted
+    @dev the edgecase of an free event is handled by adding
      */
     function fuelBackpackTicket(
         uint256 nftIndex,
@@ -236,16 +287,29 @@ contract economicsGET is Initializable {
         uint256 basePrice
         ) external onlyFactory returns (uint256) 
         { 
+            // check if nftIndex exists
+            require(GET_ERC721.isNftIndex(nftIndex), "ECONOMICS_INDEX_UNKNOWN");
 
-            // calculate amount of GET required for backpack
+            // check if relayer is registered in economics contracts
+            require(checkIfRelayer(relayerAddress), "ECONOMICS_UNKNOWN_RELAYER");
+
+            if (basePrice == 0) { // free event, replace with freeEventRate in USD
+                basePrice = freeEventRate;
+            }
+
+            // check if baseprice is valid (non negative, not zero)
+            require(basePrice > 0, "ECONOMICS_BASEPRICE_ZERO");
+
+            // calculate amount of GET required for the tickets backpack starting balance
             uint256 _getamount = calcBackpackGET(
                 basePrice,
                 allConfigs[relayerAddress].baseRate
             );
 
+            // check if calculated amount is higher than zero, statechanges cannot be free
             require(_getamount > 0, "FUEL_ZERO_AMOUNT");
 
-            // check if integrator has sufficient GET for action
+            // check if integrator has sufficient GET to perform fueling action
             require( 
                 _getamount <= relayerBalance[relayerAddress],
             "GET_BALANCE_LOW"
@@ -262,7 +326,7 @@ contract economicsGET is Initializable {
                 ),
                 "DEPOT_TRANSFER_FAILED");
 
-            // return to the base contract the amount of GET used
+            // return to the base contract the amount of GET added to the fuel cotract
 
             emit BackpackFilled(
                 nftIndex,
@@ -279,15 +343,16 @@ contract economicsGET is Initializable {
     @dev so it is possible that an address tops up an account that is not itself
     @param relayerAddress address of the ticketeer / integrator
     @param amountTopped amount of GET that is added to the balance of the integrator
-    
      */
     function topUpGet(
         address relayerAddress,
         uint256 amountTopped
-    ) public onlyRelayer {
+    ) public onlyRelayer returns (uint256){
 
         require(amountTopped > 0, "ZERO_TOPPED_UP");
-        // require(relayerRegistry[relayerAddress], "UNKNOWN_RELAYER");
+
+        // Check if the relayer is known
+        require(checkIfRelayer(relayerAddress), "TOPUP_ECON_RELAYER_UNKNOWN");
 
         // check if msg.sender has allowed contract to spend/send tokens on the callers behalf
         require(
@@ -306,7 +371,6 @@ contract economicsGET is Initializable {
             "TRANSFER_FAILED_TOPUPGET"
         );
 
-
         // add the sent tokens to the balance
         relayerBalance[relayerAddress] += amountTopped;
 
@@ -315,77 +379,25 @@ contract economicsGET is Initializable {
             amountTopped,
             relayerBalance[relayerAddress]
         );
+
+        return relayerBalance[relayerAddress];
     }
-
-
-    /** set the price used by the contract to price GET in usd
-    @param newGETPrice new GETUSD price used to calculate amont of GET needed in the rucksack of an NFT
-     */
-    function setPriceGETUSD(
-        uint256 newGETPrice
-    ) public onlyAdmin {
-        priceGETUSD = newGETPrice;
-        
-        emit priceGETChanged(
-            newGETPrice
-        );
-    }
-
-    /** calculates the amount of GET required in a backpack
-    @notice in dollarvalue the total USD value of the ticket needs to be passed
-    @notice this function uses the contracts global priceGETUSD value to determine the price
-    @param dollarvalue amount of USD that needs to be in the rucksack
-     */
-     function calcNeededGET(
-         uint256 dollarvalue // 500 -> $5.00/GET
-     ) public view returns(uint256) {
-         require(dollarvalue < 0, "DOL_ZERO_VALUE");
-         require(priceGETUSD < 0, "GET_ZERO_VALUE");
-         return dollarvalue.div(priceGETUSD);
-     }
 
 
     /**
-    @param baseTicketPrice base amount in USD of the ticket being minted
-    @param percetageCut percentage 0.01, 0.03 etc that goes in the rucksack in USD value
-     */
-    function calcBackpackValue(
-        uint256 baseTicketPrice,
-        uint256 percetageCut
-    ) public view returns(uint256) {
-
-        // TODO add sanitity check for percentageCut
-
-        return baseTicketPrice.mul(percetageCut).div(10000);
-    }
-
-    /**
-    @param baseTicketPrice base amount in USD of the ticket being minted
-    @param percetageCut percentage 1 = 0.01 10 = 0.1 100 = 1 etc that goes in the rucksack in USD value
+    @param baseTicketPrice base amount in USD of the ticket being minted - scaled x100
+    @param percetageCut percentage 1 = 0.01 10 = 0.1 100 = 1 etc that goes in the rucksack in USD value - scaled - 10 000
+    @notice percentageCut 100 times larger than it should be, relative to baseTicketPrice
      */
     function calcBackpackGET(
-        uint256 baseTicketPrice, // 10 000 dollar cents ($100) magnified: x100
-        uint256 percetageCut // 200 (2% or 0.02) maginified: x10 000
+        uint256 baseTicketPrice, // 10 000 dollar cents =$100 - magnified: x100 in USD
+        uint256 percetageCut // 200 is 2% or 0.0 - maginified: x10 000
     ) public view returns(uint256) {
+        uint256 get_amount = baseTicketPrice.mul(percetageCut).div(priceGETUSD).mul(100000000000000);
 
-        uint256 _val1 = baseTicketPrice.mul(percetageCut).div(10);
-        uint256 _val2 = _val1.div(priceGETUSD);
+        require(get_amount > 0, "CANNOT_BE_LOWER");
 
-        uint256 _val3 = _val2.mul(1000000000000000);
-
-        return _val3; // 200 ($2)
-    }
-
-
-    /** Returns the amount of GET on the balance of the 
-    @param relayerAddress address of the ticketeer / integrator
-     */
-    function fuelBalanceOfRelayer(
-        address relayerAddress
-    ) public view returns (uint256) 
-    {
-        // TODO add check if relayer exists
-       return relayerBalance[relayerAddress];
+        return get_amount; // return in wei
     }
 
 
@@ -395,7 +407,8 @@ contract economicsGET is Initializable {
     function balanceOfRelayer(
         address relayerAddress
     ) public view returns (uint256) 
-    {
+    {   
+        require(checkIfRelayer(relayerAddress), "RELAYER_NOT_REGISTERED");
         return relayerBalance[relayerAddress];
     }
 
@@ -414,9 +427,8 @@ contract economicsGET is Initializable {
     function checkIfRelayer(
         address relayerAddress
     ) public view returns (bool) 
-    {
-        return relayerRegistry[relayerAddress];
+    {   
+        return allConfigs[relayerAddress].isConfigured;
     }
-
 
 }

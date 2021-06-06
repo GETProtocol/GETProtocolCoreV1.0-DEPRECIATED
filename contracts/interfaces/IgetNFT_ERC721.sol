@@ -1,4 +1,5 @@
-pragma solidity ^0.6.2;
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.5.0 <0.7.0;
 
 interface IGET_ERC721 {
     function mintERC721(
@@ -22,4 +23,7 @@ interface IGET_ERC721 {
         uint256 nftIndex,
         string calldata _newTokenURI
         ) external;
+    function isNftIndex(
+        uint256 nftIndex
+    ) external view returns(bool);
 }
