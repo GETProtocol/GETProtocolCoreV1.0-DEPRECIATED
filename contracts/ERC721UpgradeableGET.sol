@@ -743,16 +743,14 @@ contract ERC721UpgradeableGET is Initializable, ContextUpgradeable, ERC165Upgrad
         emit Approval(ownerOf(tokenId), to, tokenId);
     }
 
-    // /**  CUSTOM
-    //  * @dev Internal function to set the token URI for a given token.
-    //  * Reverts if the token ID does not exist.
-    //  * @param nftIndex uint256 ID of the token to set its URI
-    //  * @param ticketMetadata ticket metadata indentifier
-    //  */
-    // function _setnftMetadata (uint256 nftIndex, string memory ticketMetadata) internal {
-    //     require(_exists(nftIndex), "ERC721Metadata: Metadata set of nonexistent nftIndex");
-    //     _tokenURIs[nftIndex] = ticketMetadata;
-    // }
+    /**
+    @param nftIndex unique identifer of getNFT/NFT 
+     */
+    function isNftIndex(
+        uint256 nftIndex
+    ) public view returns(bool) {
+        return _tokenOwners.contains(nftIndex);
+    }
 
     /**
      * @dev Hook that is called before any token transfer. This includes minting

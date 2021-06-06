@@ -132,7 +132,6 @@ contract eventMetadataStorage is Initializable, ContextUpgradeable {
         );
     }
 
-
     // OPERATIONAL FUNCTIONS
 
     function registerEvent(
@@ -149,31 +148,47 @@ contract eventMetadataStorage is Initializable, ContextUpgradeable {
       bool isPrivate
       ) public onlyRelayer {
 
-      // uint256 charged = DEPOT.chargeProtocolTax(nftIndexP);
-      // uint256[2] memory _fees = ECONOMICS.chargeForStatechangeList(msg.sender,3);
-
       address underwriterAddress = 0x0000000000000000000000000000000000000000;
 
-      allEventStructs[eventAddress] = EventStruct(
-        eventAddress, 
-        integratorAccountPublicKeyHash,
-        underwriterAddress,
-        eventName, 
-        shopUrl,
-        imageUrl,
-        eventMeta, 
-        eventTimes, 
-        setAside,
-        extraData,
-        isPrivate,
-        true
-      );
+      if (isPrivate == true) {
+        allEventStructs[eventAddress] = EventStruct(
+          eventAddress, 
+          integratorAccountPublicKeyHash,
+          underwriterAddress,
+          "Private event name", 
+          "Private event URL",
+          "Private image URL",
+          eventMeta,
+          eventTimes, 
+          false,
+          extraData,
+          true,
+          true
+        );
+
+      } else {
+
+        allEventStructs[eventAddress] = EventStruct(
+          eventAddress, 
+          integratorAccountPublicKeyHash,
+          underwriterAddress,
+          eventName, 
+          shopUrl,
+          imageUrl,
+          eventMeta, 
+          eventTimes, 
+          setAside,
+          extraData,
+          isPrivate,
+          true
+        );
+      }
 
       eventAddresses.push(eventAddress);
 
       emit newEventRegistered(
         eventAddress,
-        1000,
+        0,
         eventName,
         block.timestamp
       );

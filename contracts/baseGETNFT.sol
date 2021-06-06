@@ -79,6 +79,7 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
 
     bytes32 private constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
     bytes32 private constant GET_ADMIN = keccak256("GET_ADMIN");
+    bytes32 private constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
 
     mapping (uint256 => TicketData) private _ticket_data;
 
@@ -174,6 +175,7 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
         address DepotAddress
     );
 
+
     // MODIFIERS BASE_GETNFT //
 
     /**
@@ -191,6 +193,15 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
     modifier onlyAdmin() {
         require(
             GET_BOUNCER.hasRole(GET_ADMIN, msg.sender), "CALLER_NOT_ADMIN");
+        _;
+    }
+
+    /**
+     * @dev Throws if called by any account other than a GET Protocol governance address.
+     */
+    modifier onlyFactory() {
+        require(
+            GET_BOUNCER.hasRole(FACTORY_ROLE, msg.sender), "CALLER_NOT_FACTORY");
         _;
     }
 
@@ -253,93 +264,45 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
         uint256 primaryPrice,
         uint256 basePrice,
         uint256 orderTime,
-        string calldata ticketURI, 
-        bytes32[] calldata ticketMetadata
-    ) external onlyRelayer returns (uint256 nftIndexP) {
+        string memory ticketURI, 
+        bytes32[] memory ticketMetadata
+    ) public onlyRelayer returns (uint256 nftIndexP) {
 
-        if (METADATA.isInventoryUnderwritten(eventAddress)) { 
+        // Event NFT is created for is not colleterized, getNFT minted to user 
+        nftIndexP = _mintGETNFT( 
+            destinationAddress,
+            eventAddress,
+            primaryPrice,
+            ticketURI,
+            ticketMetadata,
+            false 
+        );
 
-             // Ticket inventory is 'set aside' - getNFTs already minted, inventory of event is collateralized.
-            
-            // fetch underWriter address from metadata contract
-            address underwriterAddress = METADATA.getUnderwriterAddress(eventAddress);
-            
-            nftIndexP = GET_ERC721.tokenOfOwnerByIndex(underwriterAddress, 0);
+        require(nftIndexP > 0, "PRIMARYMINT_NO_INDEX");
 
-            require(nftIndexP > 0, "NO_INDEX");
+        // fuel the tank of the NFT, passing on the base price
+        uint256 reserved = ECONOMICS.fuelBackpackTicket(
+            nftIndexP,
+            msg.sender,
+            basePrice
+        );
 
-            require(isNFTSellable(nftIndexP, underwriterAddress), "RE/SALE_ERROR");
+        require(reserved > 0, "PRIMARYMINT_NO_GET_RESERVED");
 
-            uint256 charged = DEPOT.chargeProtocolTax(nftIndexP);
+        // charge the protocol tax rate on the tank balance
+        uint256 charged = DEPOT.chargeProtocolTax(nftIndexP);
+        require(charged > 0, "PRIMARYMINT_NO_GET_FEE_PAID");
 
-            require(charged > 0, "PRIMARY1_NO_GET_FEE_PAID");
+        emit primarySaleMint(
+            nftIndexP,
+            charged,
+            destinationAddress,
+            eventAddress,
+            primaryPrice,
+            orderTime
+        );
 
-            // getNFT transfer is relayed to FINANCE contract, as to perform accounting
-            FINANCE.collateralizedNFTSold(
-                nftIndexP,
-                underwriterAddress,
-                destinationAddress,
-                orderTime,
-                primaryPrice     
-            );
-
-            GET_ERC721.relayerTransferFrom(
-                underwriterAddress, 
-                destinationAddress, 
-                nftIndexP
-            );
-
-            // push/append colleterization price to getNFT 
-            _ticket_data[nftIndexP].prices_sold.push(primaryPrice);
-
-            emit saleCollaterizedIntentory(
-                nftIndexP,
-                charged,
-                eventAddress, 
-                orderTime
-            );
-
-            return nftIndexP;
-
-            } else {
-
-                // Event NFT is created for is not colleterized, getNFT minted to user 
-                nftIndexP = _mintGETNFT( 
-                    destinationAddress,
-                    eventAddress,
-                    primaryPrice,
-                    ticketURI,
-                    ticketMetadata,
-                    false 
-                );
-
-                require(nftIndexP > 0, "PRIMARYMINT_NO_INDEX");
-
-                // fuel the tank of the NFT, passing on the base price
-                uint256 reserved = ECONOMICS.fuelBackpackTicket(
-                    nftIndexP,
-                    msg.sender,
-                    basePrice
-                );
-
-                require(reserved > 0, "PRIMARYMINT_NO_GET_RESERVED");
-
-                // charge the protocol tax rate on the tank balance
-                uint256 charged = DEPOT.chargeProtocolTax(nftIndexP);
-                require(charged > 0, "PRIMARYMINT_NO_GET_FEE_PAID");
-
-                emit primarySaleMint(
-                    nftIndexP,
-                    charged,
-                    destinationAddress,
-                    eventAddress,
-                    primaryPrice,
-                    orderTime
-                );
-
-                return nftIndexP;
-            }
-
+        return nftIndexP;
     }
 
     /** transfers a getNFT from EOA to EOA
@@ -352,7 +315,7 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
         address originAddress, 
         address destinationAddress,
         uint256 orderTime,
-        uint256 secondaryPrice) external onlyRelayer {
+        uint256 secondaryPrice) public onlyRelayer returns(uint256) {
 
         uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0);
 
@@ -379,6 +342,8 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
             secondaryPrice,
             orderTime
         );
+        
+        return nftIndex;
     
     }
 
@@ -389,7 +354,7 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
     function scanNFT(
         address originAddress, 
         uint256 orderTime
-        ) external onlyRelayer {
+        ) public onlyRelayer {
         
         uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0);
 
@@ -423,7 +388,7 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
     */
     function invalidateAddressNFT(
         address originAddress, 
-        uint256 orderTime) external onlyRelayer {
+        uint256 orderTime) public onlyRelayer {
         
         uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0);
 
@@ -452,7 +417,7 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
     function claimgetNFT(
         address originAddress, 
         address externalAddress,
-        uint256 orderTime) external onlyRelayer {
+        uint256 orderTime) public onlyRelayer {
 
         uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0); // fetch the index of the NFT
 
@@ -551,7 +516,7 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
         string memory ticketURI,
         bytes32[] memory ticketMetadata,
         bool setAsideNFT
-        ) internal returns(uint256 nftIndexM) {
+        ) onlyRelayer public returns(uint256 nftIndexM) {
 
         nftIndexM = GET_ERC721.mintERC721(
             destinationAddress,
@@ -584,8 +549,8 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
     */
     function editTokenURIbyAddress(
         address originAddress,
-        string calldata newTokenURI
-        ) external onlyRelayer {
+        string memory newTokenURI
+        ) public onlyRelayer {
             
             uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0);
 
@@ -609,8 +574,8 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
     */
     function editTokenURIbyIndex(
         uint256 nftIndex,
-        string calldata newTokenURI
-        ) external onlyRelayer {
+        string memory newTokenURI
+        ) public onlyRelayer {
 
             uint256 charged = DEPOT.chargeProtocolTax(nftIndex);
             
