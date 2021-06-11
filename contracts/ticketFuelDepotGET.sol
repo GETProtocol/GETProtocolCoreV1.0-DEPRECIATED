@@ -3,6 +3,7 @@ pragma solidity >=0.5.0 <0.7.0;
 pragma experimental ABIEncoderV2;
 
 import "./utils/Initializable.sol";
+import "./utils/ContextUpgradeable.sol";
 
 import "./interfaces/IERC20.sol";
 import "./interfaces/IGETAccessControl.sol";
@@ -13,14 +14,12 @@ import "./interfaces/IgetNFT_ERC721.sol";
 import "./utils/EnumerableSetUpgradeable.sol";
 import "./utils/EnumerableMapUpgradeable.sol";
 
-contract ticketFuelDepot is Initializable  {
+contract ticketFuelDepot is Initializable, ContextUpgradeable {
     IGETAccessControl private GET_BOUNCER;
     IERC20 public ACTIVE_FUELTOKEN;
     IEconomicsGET private ECONOMICS;
     IGET_ERC721 private GET_ERC721;
 
-
-    // if this cool is set to true, the fuel token contract address cannot be changed by the 'changeFuelAddress' function - effectively locking the fuel token to this instance/proxy of the contract. Making it significantly harder to change the fuel token to a ERC20 that doesn't require capital to purchase. 
     bool public isFuelLocked;
 
     using SafeMathUpgradeable for uint256;
@@ -38,14 +37,13 @@ contract ticketFuelDepot is Initializable  {
         address fueltoken_address,
         address new_collectAddress,
         address address_erc721,
-        uint256 price_getusd
+        uint64 taxrate_global // %3 0 0.03 - scaled: x100 000   - uint64
         ) public initializer {
             GET_BOUNCER = IGETAccessControl(address_bouncer);
             ACTIVE_FUELTOKEN = IERC20(fueltoken_address);
             collectAddress = new_collectAddress;
-            priceGETUSD = price_getusd;
             GET_ERC721 = IGET_ERC721(address_erc721);
-            baseRateGlobal = 3000;
+            taxRateGlobal = taxrate_global; 
             isFuelLocked = false;
         }
 
@@ -58,20 +56,15 @@ contract ticketFuelDepot is Initializable  {
     // address that will receive all the sweeped GET, either a contract (like feeCollector) or it could be 
     address private collectAddress;
     
-    // TODO add descritpion
-    uint256 public priceGETUSD;
+    uint64 public priceGETUSD;
 
-    // TODO add description
-    uint256 public baseRateGlobal;
+    uint64 public taxRateGlobal;
 
     // data struct that stores the amount of GET that is in the rucksack of an NFT
     // NFTINDEX 23111 => 33432 wei GET in tank etc
     // NFTINDEX 99122 => 943 wei GET in tank etc
     mapping (address => mapping(uint256 => uint256)) private nftBackpackBalance;
     mapping (uint256 => address) private nftFuelRegistery;    
-
-    // data struct with similar function as nftBackpackMap (above) but allowing for several fuel token addresses - this is needed as 
-    // mapping (address => mapping(uint256 => uint256)) private nftBackpackBalance;
 
     // used to store if an NFT exsits
     mapping (uint256 => bool) private NFTIndexBool;
@@ -87,7 +80,7 @@ contract ticketFuelDepot is Initializable  {
 
     event statechangeTaxed(
         uint256 nftIndex,
-        uint256 GETTaxedAmount,
+        uint64 GETTaxedAmount,
         address fuelAddress
     );
 
@@ -108,6 +101,10 @@ contract ticketFuelDepot is Initializable  {
 
     event fuelLocked(
         address lockedFuelTokenAddress
+    );
+
+    event priceUpdated(
+        uint64 getPrice
     );
 
     // MODIFIERS 
@@ -162,6 +159,16 @@ contract ticketFuelDepot is Initializable  {
         collectAddress = new_collectAddress;
 
         emit NewFeeCollecterAddressSet(new_collectAddress);
+
+    }
+
+    function syncGETPrice() public {
+
+        priceGETUSD = ECONOMICS.getGETPrice();
+
+        emit priceUpdated(
+            priceGETUSD
+        );
 
     }
 
@@ -296,7 +303,7 @@ contract ticketFuelDepot is Initializable  {
         require(_current > 0, "NO_BALANCE_NO_INDEX");
 
         // multiply tax rate by GET in backpack
-        uint256 _deduct = _current.mul(baseRateGlobal).div(10000);
+        uint256 _deduct = _current.mul(taxRateGlobal).div(10000);
 
         // deduct the tax from the internal backpack balance of the nft
         nftBackpackBalance[address(FUEL)][nftIndex] -= _deduct;
@@ -309,7 +316,7 @@ contract ticketFuelDepot is Initializable  {
 
         emit statechangeTaxed(
             nftIndex,
-            _deduct,
+            uint64(_deduct),
             address(FUEL)
         );
 

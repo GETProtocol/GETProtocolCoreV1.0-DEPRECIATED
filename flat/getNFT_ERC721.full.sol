@@ -600,14 +600,17 @@ library EnumerableMapUpgradeable {
 
 // File: contracts/utils/StringsUpgradeable.sol
 
+
 pragma solidity >=0.5.0 <0.7.0;
 
 /**
  * @dev String operations.
  */
 library StringsUpgradeable {
+    bytes16 private constant alphabet = "0123456789abcdef";
+
     /**
-     * @dev Converts a `uint256` to its ASCII `string` representation.
+     * @dev Converts a `uint256` to its ASCII `string` decimal representation.
      */
     function toString(uint256 value) internal pure returns (string memory) {
         // Inspired by OraclizeAPI's implementation - MIT licence
@@ -623,14 +626,45 @@ library StringsUpgradeable {
             temp /= 10;
         }
         bytes memory buffer = new bytes(digits);
-        uint256 index = digits - 1;
-        temp = value;
-        while (temp != 0) {
-            buffer[index--] = byte(uint8(48 + temp % 10));
-            temp /= 10;
+        while (value != 0) {
+            digits -= 1;
+            buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
+            value /= 10;
         }
         return string(buffer);
     }
+
+    /**
+     * @dev Converts a `uint256` to its ASCII `string` hexadecimal representation.
+     */
+    function toHexString(uint256 value) internal pure returns (string memory) {
+        if (value == 0) {
+            return "0x00";
+        }
+        uint256 temp = value;
+        uint256 length = 0;
+        while (temp != 0) {
+            length++;
+            temp >>= 8;
+        }
+        return toHexString(value, length);
+    }
+
+    /**
+     * @dev Converts a `uint256` to its ASCII `string` hexadecimal representation with fixed length.
+     */
+    function toHexString(uint256 value, uint256 length) internal pure returns (string memory) {
+        bytes memory buffer = new bytes(2 * length + 2);
+        buffer[0] = "0";
+        buffer[1] = "x";
+        for (uint256 i = 2 * length + 1; i > 1; --i) {
+            buffer[i] = alphabet[value & 0xf];
+            value >>= 4;
+        }
+        require(value == 0, "Strings: hex length insufficient");
+        return string(buffer);
+    }
+
 }
 
 // File: contracts/utils/AddressUpgradeable.sol
@@ -1728,16 +1762,14 @@ contract ERC721UpgradeableGET is Initializable, ContextUpgradeable, ERC165Upgrad
         emit Approval(ownerOf(tokenId), to, tokenId);
     }
 
-    // /**  CUSTOM
-    //  * @dev Internal function to set the token URI for a given token.
-    //  * Reverts if the token ID does not exist.
-    //  * @param nftIndex uint256 ID of the token to set its URI
-    //  * @param ticketMetadata ticket metadata indentifier
-    //  */
-    // function _setnftMetadata (uint256 nftIndex, string memory ticketMetadata) internal {
-    //     require(_exists(nftIndex), "ERC721Metadata: Metadata set of nonexistent nftIndex");
-    //     _tokenURIs[nftIndex] = ticketMetadata;
-    // }
+    /**
+    @param nftIndex unique identifer of getNFT/NFT 
+     */
+    function isNftIndex(
+        uint256 nftIndex
+    ) public view returns(bool) {
+        return _tokenOwners.contains(nftIndex);
+    }
 
     /**
      * @dev Hook that is called before any token transfer. This includes minting
@@ -1869,6 +1901,7 @@ contract getNFT_ERC721 is Initializable, ERC721UpgradeableGET {
 
     function __ERC721PresetMinterPauserAutoId_init_unchained() internal initializer {
         _setBaseURI("www.get-protocol.io");
+        _tokenIdTracker.increment();
     }
 
     using CountersUpgradeable for CountersUpgradeable.Counter;
@@ -1944,6 +1977,7 @@ contract getNFT_ERC721 is Initializable, ERC721UpgradeableGET {
         ) internal virtual override(ERC721UpgradeableGET) {
         super._beforeTokenTransfer(from, to, tokenId);
     }
+
     uint256[49] private __gap;
 
 }

@@ -139,7 +139,6 @@ contract getEventFinancing is Initializable, ContextUpgradeable {
         );
     }
 
-
     function addLoanInfo(
         address eventAddress,
         address loanedTokenAddress,
