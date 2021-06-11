@@ -234,7 +234,7 @@ interface IbaseGETNFT {
         address originAddress, 
         address destinationAddress,
         uint256 orderTime,
-        uint256 secondaryPrice) external;
+        uint256 secondaryPrice) external returns(uint256);
 
     function scanNFT(
         address originAddress,
@@ -266,6 +266,16 @@ interface IbaseGETNFT {
           bool _setAsideNFT,
           uint256[] memory _prices_sold
       );
+
+    function _mintGETNFT(
+        address destinationAddress, 
+        address eventAddress, 
+        uint256 issuePrice,
+        string calldata ticketURI,
+        bytes32[] calldata ticketMetadata,
+        bool setAsideNFT
+        ) external returns(uint256);
+
 }
 
 // File: contracts/interfaces/IeventMetadataStorage.sol
@@ -404,6 +414,9 @@ interface IGET_ERC721 {
         uint256 nftIndex,
         string calldata _newTokenURI
         ) external;
+    function isNftIndex(
+        uint256 nftIndex
+    ) external view returns(bool);
 }
 
 // File: contracts/interfaces/IEconomicsGET.sol
@@ -416,6 +429,9 @@ interface IEconomicsGET {
         address newFuelAddress,
         address newDepotAddress
     ) external;
+
+    function getGETPrice() 
+    external view returns(uint64);
 
     function balanceOfRelayer(
         address relayerAddress
@@ -463,6 +479,9 @@ interface IEconomicsGET {
 pragma solidity >=0.5.0 <0.7.0;
 
 interface IticketFuelDepotGET {
+
+    function getActiveFuel() 
+    external view returns(address);
 
     function calcNeededGET(
          uint256 dollarvalue)
@@ -643,7 +662,6 @@ contract getEventFinancing is Initializable, ContextUpgradeable {
             newAddressBase
         );
     }
-
 
     function addLoanInfo(
         address eventAddress,

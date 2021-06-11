@@ -8,6 +8,9 @@ interface IEconomicsGET {
         address newDepotAddress
     ) external;
 
+    function getGETPrice() 
+    external view returns(uint64);
+
     function balanceOfRelayer(
         address relayerAddress
     ) external;

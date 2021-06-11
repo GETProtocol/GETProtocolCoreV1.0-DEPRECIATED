@@ -56,10 +56,10 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
     IEconomicsGET private ECONOMICS;
     IticketFuelDepotGET private DEPOT;
 
+    using SafeMathUpgradeable for uint256;
+
     string public constant contractName = "baseGETNFT";
     string public constant contractVersion = "1";
-
-    using SafeMathUpgradeable for uint256;
     
     function _initialize_base(
         address address_bouncer, 
@@ -75,6 +75,7 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
             GET_ERC721 = IGET_ERC721(address_erc721);
             ECONOMICS = IEconomicsGET(address_economics);
             DEPOT = IticketFuelDepotGET(address_fueldepot);
+            baseGETFee = 140000000;
     }
 
     bytes32 private constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
@@ -92,6 +93,12 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
         bool valid; // true = ticket can be used,sold,claimed. false = ticket has been invalidated for whatever reason by issuer. 
     }
 
+    uint64 private baseGETFee;
+
+    function setBaseGETFee(uint64 newBaseGETFee) public onlyAdmin {
+        baseGETFee = newBaseGETFee;
+    }
+
     event ConfigurationChanged(
         address addressBouncer, 
         address addressMetadata, 
@@ -101,47 +108,47 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
 
     event primarySaleMint(
         uint256 indexed nftIndex,
-        uint256 indexed getUsed,
+        uint64 indexed getUsed,
         address destinationAddress, 
         address eventAddress, 
         uint256 primaryPrice,
-        uint256 indexed orderTime
+        uint64 indexed orderTime
     );
 
     event secondarySale(
         uint256 indexed nftIndex,
-        uint256 indexed getUsed,
+        uint64 indexed getUsed,
         address destinationAddress, 
         address eventAddress,
         uint256 secondaryPrice,
-        uint256 indexed orderTime
+        uint64 indexed orderTime
     );
 
     event saleCollaterizedIntentory(
         uint256 indexed nftIndex,
-        uint256 indexed getUsed,
+        uint64 indexed getUsed,
         address eventAddress,
-        uint256 indexed orderTime
+        uint64 indexed orderTime
     );
 
     event ticketScanned(
         uint256 indexed nftIndex,
-        uint256 indexed getUsed,
-        uint256 indexed orderTime
+        uint64 indexed getUsed,
+        uint64 indexed orderTime
     );
 
     event ticketInvalidated(
         uint256 indexed nftIndex,
-        uint256 indexed getUsed,
+        uint64 indexed getUsed,
         address originAddress,
-        uint256 indexed orderTime
+        uint64 indexed orderTime
     ); 
 
     event nftClaimed(
         uint256 indexed nftIndex,
-        uint256 indexed getUsed,
+        uint64 indexed getUsed,
         address externalAddress,
-        uint256 indexed orderTime
+        uint64 indexed orderTime
     );
 
     event nftMinted(
@@ -151,23 +158,23 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
 
     event nftTokenURIEdited(
         uint256 indexed nftIndex,
-        uint256 indexed getUsed,
+        uint64 indexed getUsed,
         string netTokenURI
     );
 
     event illegalScan(
         uint256 indexed nftIndex,
-        uint256 indexed getUsed,
-        uint256 indexed orderTime
+        uint64 indexed getUsed,
+        uint64 indexed orderTime
     );
 
     event colleterizedMint(
         uint256 indexed nftIndex,
-        uint256 indexed getUsed,
+        uint64 indexed getUsed,
         address destinationAddress, 
         address eventAddress, 
         uint256 strikeValue,
-        uint256 indexed orderTime
+        uint64 indexed orderTime
     );
 
     event ConfigurationChangedEcon(
@@ -290,16 +297,16 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
         require(reserved > 0, "PRIMARYMINT_NO_GET_RESERVED");
 
         // charge the protocol tax rate on the tank balance
-        uint256 charged = DEPOT.chargeProtocolTax(nftIndexP);
+        uint256 charged = DEPOT.chargeProtocolTax(nftIndexP).div(100000000);
         require(charged > 0, "PRIMARYMINT_NO_GET_FEE_PAID");
 
         emit primarySaleMint(
             nftIndexP,
-            charged,
+            baseGETFee,
             destinationAddress,
             eventAddress,
             primaryPrice,
-            orderTime
+            uint64(orderTime)
         );
 
         return nftIndexP;
@@ -321,7 +328,7 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
 
         require(nftIndex > 0, "SECONDARY_NO_INDEX");
 
-        uint256 charged = DEPOT.chargeProtocolTax(nftIndex);
+        uint256 charged = DEPOT.chargeProtocolTax(nftIndex).div(100000000);
 
         require(charged > 0, "SECONDARY_NO_GET_FEE_PAID");
         require(isNFTSellable(nftIndex, originAddress), "RE/SALE_ERROR");
@@ -336,11 +343,11 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
 
         emit secondarySale(
             nftIndex,
-            charged,
+            baseGETFee,
             destinationAddress, 
             _ticket_data[nftIndex].event_address, 
             secondaryPrice,
-            orderTime
+            uint64(orderTime)
         );
         
         return nftIndex;
@@ -360,7 +367,7 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
 
         require(nftIndex > 0, "SCAN_NO_INDEX");
         
-        uint256 charged = DEPOT.chargeProtocolTax(nftIndex);
+        uint256 charged = DEPOT.chargeProtocolTax(nftIndex).div(100000000);
 
         require(charged > 0, "SCAN_NO_GET_FEE_PAID");
         require(_ticket_data[nftIndex].valid == true, "SCAN_INVALID_TICKET");
@@ -368,16 +375,16 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
         if (_ticket_data[nftIndex].scanned == true) { // The getNFT was already in the scanned state (so a dubble scan was performed) 
             emit illegalScan(
                 nftIndex,
-                charged,
-                orderTime
+                baseGETFee,
+                uint64(orderTime)
             );
         } else { // valid scan - getNFT was unscanned
             _ticket_data[nftIndex].scanned = true;
 
             emit ticketScanned(
                 nftIndex,
-                charged,
-                orderTime
+                baseGETFee,
+                uint64(orderTime)
             );
         }
     }
@@ -394,7 +401,7 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
 
         require(nftIndex > 0, "INVALIDATE_NO_INDEX");
 
-        uint256 charged = DEPOT.chargeProtocolTax(nftIndex);
+        uint256 charged = DEPOT.chargeProtocolTax(nftIndex).div(100000000);
         
         require(charged > 0, "INVALIDATE_NO_GET_FEE_PAID");
         require(_ticket_data[nftIndex].valid == true, "DOUBLE_INVALIDATION");
@@ -403,9 +410,9 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
 
         emit ticketInvalidated(
             nftIndex, 
-            charged,
+            baseGETFee,
             originAddress,
-            orderTime
+            uint64(orderTime)
         );
     } 
 
@@ -423,7 +430,7 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
 
         require(nftIndex > 0, "CLAIM_NO_INDEX");
 
-        uint256 charged = DEPOT.chargeProtocolTax(nftIndex);
+        uint256 charged = DEPOT.chargeProtocolTax(nftIndex).div(100000000);
 
         require(charged > 0, "CLAIM_NO_GET_FEE_PAID");
         require(isNFTClaimable(nftIndex, originAddress), "CLAIM_ERROR");
@@ -437,9 +444,9 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
 
         emit nftClaimed(
             nftIndex,
-            charged,
+            baseGETFee,
             externalAddress,
-            orderTime
+            uint64(orderTime)
         );
 
     }
@@ -465,7 +472,7 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
     ) public onlyRelayer returns (uint256 nftIndex) {
 
         // TODO NFT FIRST NEEDS TO BE FUELED
-        uint256 charged = DEPOT.chargeProtocolTax(nftIndex);
+        uint256 charged = DEPOT.chargeProtocolTax(nftIndex).div(100000000);
 
         require(charged > 0, "FINANCE_NO_GET_FEE_PAID");
 
@@ -486,11 +493,11 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
 
         emit colleterizedMint(
             nftIndex,
-            charged, 
+            baseGETFee, 
             destinationAddress,
             eventAddress,
             strikeValue,
-            orderTime
+            uint64(orderTime)
         );
 
         return nftIndex;
@@ -554,7 +561,7 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
             
             uint256 nftIndex = GET_ERC721.tokenOfOwnerByIndex(originAddress, 0);
 
-            uint256 charged = DEPOT.chargeProtocolTax(nftIndex);
+            uint256 charged = DEPOT.chargeProtocolTax(nftIndex).div(100000000);
 
             require(charged > 0, "EDIT_NO_GET_FEE_PAID");
             
@@ -562,7 +569,7 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
             
             emit nftTokenURIEdited(
                 nftIndex,
-                charged,
+                baseGETFee,
                 newTokenURI
             );
         }
@@ -577,13 +584,13 @@ contract baseGETNFT is Initializable, ContextUpgradeable {
         string memory newTokenURI
         ) public onlyRelayer {
 
-            uint256 charged = DEPOT.chargeProtocolTax(nftIndex);
+            uint256 charged = DEPOT.chargeProtocolTax(nftIndex).div(100000000);
             
             GET_ERC721.editTokenURI(nftIndex, newTokenURI);
             
             emit nftTokenURIEdited(
                 nftIndex,
-                charged,
+                baseGETFee,
                 newTokenURI
             );
         }

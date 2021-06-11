@@ -304,7 +304,7 @@ interface IbaseGETNFT {
         address originAddress, 
         address destinationAddress,
         uint256 orderTime,
-        uint256 secondaryPrice) external;
+        uint256 secondaryPrice) external returns(uint256);
 
     function scanNFT(
         address originAddress,
@@ -336,6 +336,16 @@ interface IbaseGETNFT {
           bool _setAsideNFT,
           uint256[] memory _prices_sold
       );
+
+    function _mintGETNFT(
+        address destinationAddress, 
+        address eventAddress, 
+        uint256 issuePrice,
+        string calldata ticketURI,
+        bytes32[] calldata ticketMetadata,
+        bool setAsideNFT
+        ) external returns(uint256);
+
 }
 
 // File: contracts/interfaces/IticketFuelDepotGET.sol
@@ -343,6 +353,9 @@ interface IbaseGETNFT {
 pragma solidity >=0.5.0 <0.7.0;
 
 interface IticketFuelDepotGET {
+
+    function getActiveFuel() 
+    external view returns(address);
 
     function calcNeededGET(
          uint256 dollarvalue)
@@ -395,6 +408,9 @@ interface IEconomicsGET {
         address newFuelAddress,
         address newDepotAddress
     ) external;
+
+    function getGETPrice() 
+    external view returns(uint64);
 
     function balanceOfRelayer(
         address relayerAddress
@@ -568,7 +584,6 @@ contract eventMetadataStorage is Initializable, ContextUpgradeable {
         );
     }
 
-
     // OPERATIONAL FUNCTIONS
 
     function registerEvent(
@@ -585,31 +600,47 @@ contract eventMetadataStorage is Initializable, ContextUpgradeable {
       bool isPrivate
       ) public onlyRelayer {
 
-      // uint256 charged = DEPOT.chargeProtocolTax(nftIndexP);
-      // uint256[2] memory _fees = ECONOMICS.chargeForStatechangeList(msg.sender,3);
-
       address underwriterAddress = 0x0000000000000000000000000000000000000000;
 
-      allEventStructs[eventAddress] = EventStruct(
-        eventAddress, 
-        integratorAccountPublicKeyHash,
-        underwriterAddress,
-        eventName, 
-        shopUrl,
-        imageUrl,
-        eventMeta, 
-        eventTimes, 
-        setAside,
-        extraData,
-        isPrivate,
-        true
-      );
+      if (isPrivate == true) {
+        allEventStructs[eventAddress] = EventStruct(
+          eventAddress, 
+          integratorAccountPublicKeyHash,
+          underwriterAddress,
+          "Private event name", 
+          "Private event URL",
+          "Private image URL",
+          eventMeta,
+          eventTimes, 
+          false,
+          extraData,
+          true,
+          true
+        );
+
+      } else {
+
+        allEventStructs[eventAddress] = EventStruct(
+          eventAddress, 
+          integratorAccountPublicKeyHash,
+          underwriterAddress,
+          eventName, 
+          shopUrl,
+          imageUrl,
+          eventMeta, 
+          eventTimes, 
+          setAside,
+          extraData,
+          isPrivate,
+          true
+        );
+      }
 
       eventAddresses.push(eventAddress);
 
       emit newEventRegistered(
         eventAddress,
-        1000,
+        0,
         eventName,
         block.timestamp
       );
