@@ -274,11 +274,11 @@ contract ticketFuelDepot is Initializable, ContextUpgradeable {
 
         nftFuelRegistery[nftIndex] = address(ACTIVE_FUELTOKEN);
 
-        emit BackPackFueled(
-            nftIndex,
-            amountBackpack,
-            address(ACTIVE_FUELTOKEN)
-        );
+        // emit BackPackFueled(
+        //     nftIndex,
+        //     amountBackpack,
+        //     address(ACTIVE_FUELTOKEN)
+        // );
 
         return true;
 
@@ -314,16 +314,22 @@ contract ticketFuelDepot is Initializable, ContextUpgradeable {
         // internal bookkeeping deduct from the total balance left in all backpacks 
         balanceAllBackpacks[address(FUEL)] -= _deduct;
 
-        emit statechangeTaxed(
-            nftIndex,
-            uint64(_deduct),
-            address(FUEL)
-        );
+        // emit statechangeTaxed(
+        //     nftIndex,
+        //     uint64(_deduct),
+        //     address(FUEL)
+        // );
 
         return _deduct;
 
     }
 
+    function withdrawFuel(
+        address _token, 
+        address _toAddress, 
+        uint256 _amount) external onlyAdmin {
+        IERC20(_token).transfer(_toAddress, _amount);
+    }
 
     // VIEW FUNCTIONS
 
@@ -336,68 +342,5 @@ contract ticketFuelDepot is Initializable, ContextUpgradeable {
     function getActiveFuel() public view returns(address) {
         return address(ACTIVE_FUELTOKEN);
     }
-
-
-    // /** set balance of NFT to zero
-    // @param nftIndex unique Id of NFT that needs to have its balance wiped
-    //  */
-    // function wipeNFTTankIndex(
-    //     uint256 nftIndex
-    // ) public onlyAdmin {
-
-    //     // TODO add check if NFT exists at all with a function
-
-    //     // fetch current balance of NFT
-    //     uint256 _current = nftBackpackMap[nftIndex];
-
-    //     // set NFT balance to 0 GET (empty tank)
-    //     nftBackpackMap[nftIndex] = 0;
-
-    //     // add the wipe amount to the collected balance 
-    //     GETCollectedDepot += _current;        
-
-    //     // remove the wipe amount from the total GET on NFTs
-    //     balanceDepotTanks -= _current;
-
-    //     emit nftTankWiped(
-    //         nftIndex,
-    //         _current
-    //     );
-
-    // }
-
-    // /** set balance of NFT to zero
-    // @param nftIndex unique Id of NFT that needs to have its balance deducted
-    // @param amountDeduct amount of GET that needs to be deducted
-    //  */
-    // function deductNFTTankIndex(
-    //     uint256 nftIndex,
-    //     uint256 amountDeduct
-    // ) public onlyAdmin {
-
-    //     // check if nftIndex exists
-    //     require(GET_ERC721.isNftIndex(nftIndex), "ECONOMICS_INDEX_UNKNOWN");
-
-    //     // fetch current balance of NFT
-    //     uint256 _current = nftBackpackMap[nftIndex];
-
-    //     require(_current >= amountDeduct, "BALANCE_TO_LOW_DEDUCT");
-    //     require(GETCollectedDepot >= amountDeduct, "TOO_LITTLE_COLLECTED");
-
-    //     // set NFT balance to 0 GET (empty tank)
-    //     nftBackpackMap[nftIndex] -= amountDeduct;
-
-    //     // added from the collected balance (this is a bit hacky)
-    //     GETCollectedDepot -= amountDeduct;        
-
-    //     // add the deducted amount to the total on tank balance
-    //     balanceDepotTanks += amountDeduct;
-
-    //     emit nftTankWiped(
-    //         nftIndex,
-    //         amountDeduct
-    //     );
-
-    // }    
 
 }

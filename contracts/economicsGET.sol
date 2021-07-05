@@ -344,14 +344,64 @@ contract economicsGET is Initializable, ContextUpgradeable {
 
             // return to the base contract the amount of GET added to the fuel cotract
 
-            emit BackpackFilled(
-                nftIndex,
-                uint64(_getamount)
-            );
+            // emit BackpackFilled(
+            //     nftIndex,
+            //     uint64(_getamount)
+            // );
 
             return _getamount;
     }
    
+
+    // OPERATIONAL FUNCTION GET ECONOMICS 
+
+    /**
+    @notice this contract can only be called by baseNFT contract via the primarySale function
+    @dev it is not allowed for an getNFT ticket to not use any GET. If an event is free, a extremely low basePrice should be used. The contract handles this edgecase by replacing the basePrice of a free event with a standard rate.
+    @notice will only run if a ticketeer has sufficient GET balance - otherwise will fail
+    @param nftIndex unique indentifier of getNFT as 'to be minted' by baseNFT contract
+    @param relayerAddress address of the ticketeer / integrator that is requesting this NFT mint, note that this is the address of the relayer that has called the baseNFT contract, this function is called by 
+    @param baseGETFee base value in USD of the NFT that is going to be minted
+    @dev the edgecase of an free event is handled by adding
+     */
+    function fuelBackpackTicketBackfill(
+        uint256 nftIndex,
+        address relayerAddress,
+        uint256 baseGETFee
+        ) external returns (bool) 
+        { 
+            // check if nftIndex exists
+            require(GET_ERC721.isNftIndex(nftIndex), "ECONOMICS_INDEX_UNKNOWN");
+
+            // check if relayer is registered in economics contracts
+            require(checkIfRelayer(relayerAddress), "ECONOMICS_UNKNOWN_RELAYER");
+
+            // check if integrator has sufficient GET to perform fueling action
+            require( 
+                baseGETFee < relayerBalance[relayerAddress],
+            "GET_BALANCE_INSUFFICIENT"
+            );
+
+            // deduct the GET that will be sent to the depot from the ticketeers balance
+            relayerBalance[relayerAddress] -= baseGETFee;
+
+            // call depot contract to transfer the GET and register the NFT in the depot proxy
+            require(
+                DEPOT.fuelBackpack(
+                    nftIndex,
+                    baseGETFee
+                ),
+                "DEPOT_TRANSFER_FAILED");
+
+            // return to the base contract the amount of GET added to the fuel cotract
+
+            // emit BackpackFilled(
+            //     nftIndex,
+            //     uint64(_getamount)
+            // );
+
+            return true;
+    }   
 
     // ticketeer adds GET to their balance
     /** function that tops up the relayer account
@@ -398,6 +448,14 @@ contract economicsGET is Initializable, ContextUpgradeable {
 
         return relayerBalance[relayerAddress];
     }
+
+
+  function withdrawFuel(
+      address _token, 
+      address _toAddress, 
+      uint256 _amount) external onlyAdmin {
+    IERC20(_token).transfer(_toAddress, _amount);
+  }
 
 
     /**
@@ -449,5 +507,7 @@ contract economicsGET is Initializable, ContextUpgradeable {
     function getGETPrice() public view returns(uint256) {
         return priceGETUSD;
     }
+
+
 
 }

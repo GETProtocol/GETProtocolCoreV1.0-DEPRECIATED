@@ -1,6 +1,60 @@
 # GET Protocol - General Smart Contract Specification - getNFT
 Contract overview and definition of the GET Protocols getNFTs. Allowing P2P trading of smart tickets, lending and more. In this repo the conceptual and achritectual documentation of the GET Protocol is maintained and updated. The code in this repo is only a small part of the tech stack of the GET Protocol.
 
+---
+
+## Deployed contracts - Mainnet production
+
+Proxy contract addresses (remain unchanged regardless)
+| Name | Contract type | Address |
+| ------ | ------ | ------ |
+| Proxy_AccessControlGET | Proxy | [Polygonscan Mainnet](https://polygonscan.com/address/0x3b4edAE1F2E1971C716a07FDAf65aFb144141B51#code) |
+| Proxy_eventMetadataStorage | Proxy | [Polygonscan Mainnet](https://polygonscan.com/address/0xcDA348fF8C175f305Ed8682003ec6F8743067f79#code) |
+| Proxy_economicsGET | Proxy | [Polygonscan Mainnet](https://polygonscan.com/address/0x7D25EA705A30Dd1A7F449A3540869bd102dE1a37#code) |
+| Proxy_baseGETNFT | Proxy | [Polygonscan Mainnet](https://polygonscan.com/address/0x308e44cA2153C61103b0DC67Fd038De650912b73#code) |
+| Proxy_ERC721UpgradeableGET | Proxy | [Polygonscan Mainnet](https://polygonscan.com/address/0x2055244A719229d669488E389388f2d653A452F4#code) |
+| Proxy_ticketFuelDepot | Proxy | [Polygonscan Mainnet](https://polygonscan.com/address/0x41E0d1701baDD8F876Df8c35C5D450cFEeA0AB6d#code) |
+| Proxy_getEventFinancing | Proxy | [Polygonscan Mainnet](https://polygonscan.com/address/0x2D2D60864ac782A45cF6f53b03bbF7A29Dfede44#code) |
+| MockGET | ERC20 | [Polygonscan Mainnet](https://polygonscan.com/address/0xE35357E513f0Ea7FA344De35bF13eC0c06ECCaA5#code) |
+
+Implementation contracts (can be replaced/upgraded)
+| Name | Contract type | Address |
+| ------ | ------ | ------ |
+| AccessControlGET | Implementation | [Polygonscan Mainnet](https://polygonscan.com/address/0xe01a0d6d0cdf86a15101feab62606dfd0d20042d#code) |
+| eventMetadataStorage | Implementation | [Polygonscan Mainnet](https://polygonscan.com/address/0x0230078d740b2432d7b29e4a947711cb7dd35159#code) |
+| economicsGET | Implementation | [Polygonscan Mainnet](https://polygonscan.com/address/0x62d0e96fd9b4e22f71cf2d2b930ecd142527c5ee#code) |
+| baseGETNFT | Implementation | [Polygonscan Mainnet](https://polygonscan.com/address/0x308e44cA2153C61103b0DC67Fd038De650912b73#code) |
+| ERC721UpgradeableGET | Implementation | [Polygonscan Mainnet](https://polygonscan.com/address/0x3e5540e847c019ffec7b1a4957cd4026c74a5865#code) |
+| ticketFuelDepot | Implementation | [Polygonscan Mainnet](https://polygonscan.com/address/0xbd0a1d995aa3b8462542ab00941b9230dc1d381c#code) |
+| getEventFinancing | Implementation | [Polygonscan Mainnet](https://polygonscan.com/address/0xe276ed1a4b9b7b433bbfb9ce64083da8c77050af#code) |
+
+## Deployed contracts - Testnet / Mumbai
+
+Proxy contract addresses (remain unchanged regardless)
+| Name | Contract type | Address |
+| ------ | ------ | ------ |
+| Proxy_AccessControlGET | Proxy | [Polygonscan Mumbai](https://mumbai.polygonscan.com/address/0xadda233d0fEcFf06b21A481fE55F60A1e9d136FA#code) |
+| Proxy_eventMetadataStorage | Proxy | [Polygonscan Mumbai](https://mumbai.polygonscan.com/address/0x84418467496606DAA7fBc3ED072e1F5519024368#code) |
+| Proxy_economicsGET | Proxy | [Polygonscan Mumbai](https://mumbai.polygonscan.com/address/0xBdc7b995275a640784b50A645caccA7464759774#code) |
+| Proxy_baseGETNFT | Proxy | [Polygonscan Mumbai](https://mumbai.polygonscan.com/address/0x10fAC2847b8F4f85CFd62e796aB091b3a435325F#code) |
+| Proxy_ERC721UpgradeableGET | Proxy | [Polygonscan Mumbai](https://mumbai.polygonscan.com/address/0x323a5435A2421f03a708031Db0331086Ac4C4319#code) |
+| Proxy_ticketFuelDepot | Proxy | [Polygonscan Mumbai](https://mumbai.polygonscan.com/address/0x72f4aB5A174F59a290A52Ff98D05fEA88B743F0e#code) |
+| Proxy_getEventFinancing | Proxy | [Polygonscan Mumbai](https://mumbai.polygonscan.com/address/0x6059C10b9b0f86ACade749B8Fc563b4B4a2D8bb7#code) |
+| MockGET | ERC20 | [Polygonscan Mumbai](https://mumbai.polygonscan.com/address/0x0959edbA88525E4629bD3c7053eB4cC782D6D804#code) |
+
+Implementation contracts (can be replaced/upgraded)
+| Name | Contract type | Address |
+| ------ | ------ | ------ |
+| AccessControlGET | Implementation | [Polygonscan Mumbai](https://mumbai.polygonscan.com/address/) |
+| eventMetadataStorage | Implementation | [Polygonscan Mumbai](https://mumbai.polygonscan.com/address/0x42e3af666c811be81ecf303a3fe794a71bac40a2#code) |
+| economicsGET | Implementation | [Polygonscan Mumbai](https://mumbai.polygonscan.com/address/0xbcf00feaea918c1578313e99433b7a8aa3fb8dad#code) |
+| baseGETNFT | Implementation | [Polygonscan Mumbai](https://mumbai.polygonscan.com/address/0xdbcd400f3e8f909c3f5af9ccdbcf7a834bb2c73f#code) |
+| ERC721UpgradeableGET | Implementation | [Polygonscan Mumbai](https://mumbai.polygonscan.com/address/0x77a14401a4cd7f76b2df7988c0e4c28440da1f9f#code) |
+| ticketFuelDepot | Implementation | [Polygonscan Mumbai](https://mumbai.polygonscan.com/address/0xe715b5dd2c8c4ea49a31f98ce98755638e8b946b#code) |
+| getEventFinancing | Implementation | [Polygonscan Mumbai](https://mumbai.polygonscan.com/address/0xf494816a6db68ca17dc2d049559cb06d86cc291e#code) |
+
+---
+
 **High Level Overview GET Protocol**
 ![Diagram Overview](./markdown_images/overview_layers.png)
 Custody (the HD wallet infrastructure) and engine (the tx processing and logic board) are still closed-source. This repository is the asset_factory. At the moment the GET Protocol is issuing getNFT assets on the blockchains Ropsten (Ethereum Testnet), BSC Testnet (Binance Smart Chain) and for all Korean ticketing and services the Klaytn Blockchain (mainnet).
@@ -15,12 +69,6 @@ getNFT is compliant with the ERC721 standard. getNFT adopts the following interf
 - IERC721Metadata
 - IERC721Enumerable
 - IERC721Receiver
-
-Besides the standard function and features the getNFT has several special functions and metadata contracts allowing it to be used for the rather specialized smart ticketing usecase. The code of these custom functions is found in the following contracts:
-- ERC721_TICKETING_V2.sol
-- MetaDataTE.sol
-- OrderbookBuyers.sol
-- OrderbookSellers.sol
 
 ---
 
