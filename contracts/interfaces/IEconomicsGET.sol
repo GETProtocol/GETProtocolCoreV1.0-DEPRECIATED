@@ -30,6 +30,13 @@ interface IEconomicsGET {
         uint256 basePrice
         ) external returns(uint256);
 
+    function fuelBackpackTicketBackfill(
+        uint256 nftIndex,
+        address relayerAddress,
+        uint256 baseGETFee
+        ) external returns(bool);
+
+
     function calcBackpackValue(
         uint256 baseTicketPrice,
         uint256 percetageCut
