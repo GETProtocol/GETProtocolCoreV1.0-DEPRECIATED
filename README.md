@@ -55,23 +55,13 @@ Implementation contracts (can be replaced/upgraded)
 
 ---
 
-**High Level Overview GET Protocol**
-![Diagram Overview](./markdown_images/overview_layers.png)
-Custody (the HD wallet infrastructure) and engine (the tx processing and logic board) are still closed-source. This repository is the asset_factory. At the moment the GET Protocol is issuing getNFT assets on the blockchains Ropsten (Ethereum Testnet), BSC Testnet (Binance Smart Chain) and for all Korean ticketing and services the Klaytn Blockchain (mainnet).
 
-## Definition of a getNFT asset
-The GET Protocol offers a toolsel to make (event) tickets interoperable, liquid and securitizable. Tickets are digital rights of entry. Hence. the crypto address that owns a getNFT at the moment the event scanning starts, is the entity that will be able to use the ticket to enter the venue. 
+## API Documentation for ticketIssuers (Ticketeers)
+The GET Protocol offers for ticketIssuers an API interface to pass on the activity on their systems to the blockchain twin of the issued tickets. Provided links below detail the API interface for ticketeers:
 
-The getNFT is thus a transferrable digital right. These tickets/getNFTs will have a value on the secondary market. The contract logic described in the repo, allow for getNFTs to be traded and exchanged between Ethereum/Klaytn/BSC addresses/users.
-
-getNFT is compliant with the ERC721 standard. getNFT adopts the following interfaces:
-- IERC721
-- IERC721Metadata
-- IERC721Enumerable
-- IERC721Receiver
+- [GETProtocol Documentation](https://docs.get-protocol.io/)
 
 ---
-
 
 # GET Protocol Refactored Contracts
 In this readme the functions and event emitted will be detailed.  
@@ -411,8 +401,3 @@ Events emitted: `DepotSwiped`
     ) external onlyFactory returns(uint256) {
 ```
 
-
-## API Documentation for ticketIssuers (Ticketeers)
-The GET Protocol offers for ticketIssuers an API interface to pass on the activity on their systems to the blockchain twin of the issued tickets. Provided links below detail the API interface for ticketeers:
-
-- [GETProtocol Documentation](https://docs.get-protocol.io/)
