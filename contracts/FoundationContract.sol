@@ -40,8 +40,6 @@ contract FoundationContract is Initializable, ContextUpgradeable {
     IEconomicsGET internal ECONOMICS;
     IERC20 internal FUELTOKEN;
 
-    event ContractSyncCompleted();
-
     function __FoundationContract_init_unchained(
         address _configurationAddress
     ) internal initializer {
@@ -136,8 +134,6 @@ contract FoundationContract is Initializable, ContextUpgradeable {
         FUELTOKEN = IERC20(
             CONFIGURATION.fueltoken_get_address()
         );
-
-        emit ContractSyncCompleted();
     
         return true;
     }

@@ -23,6 +23,7 @@ contract EconomicsGET is FoundationContract, ReentrancyGuardUpgradeable {
     // 100% (1) 10000, 10% (0.1) = 1000, 1% (0.01) = 100, 0.1% (0.001) = 10, 0.01% (0.0001) ---> scaled by 10 000
     // USD values (min, max) are scaled by 1000
     struct DynamicRateStruct {
+        bool configured;
         uint32 mintRate; // 1
         uint32 resellRate; // 2
         uint32 claimRate; // 3
@@ -60,7 +61,7 @@ contract EconomicsGET is FoundationContract, ReentrancyGuardUpgradeable {
     mapping(address => uint256) private cachedMintFactor;
 
     // nested mapping containing the indexed receipts of a relayer
-    mapping(address => mapping(uint => TopUpReceipt)) public receiptDrawer;
+    mapping(address => mapping(uint => TopUpReceipt)) private receiptDrawer;
 
     // mapping with relayer silo balance, in GET, in wei 1e18
     mapping(address => uint256) private relayerSiloBalance;
@@ -75,7 +76,7 @@ contract EconomicsGET is FoundationContract, ReentrancyGuardUpgradeable {
     mapping(uint256 => uint256) private backpackBasicBalance;
 
     // mapping of upsell_balance of NFT by nftIndex
-    mapping(uint256 => uint256) private backpackUpsellBalance;
+    // mapping(uint256 => uint256) private backpackUpsellBalance;
 
     // count of total amount of collected GET
     uint256 private collectedDepot;
@@ -86,6 +87,10 @@ contract EconomicsGET is FoundationContract, ReentrancyGuardUpgradeable {
     // mapping used to track what relayers are configured properly
     mapping(address => bool) private isRelayerConfigured;
 
+    // mapping between buffer and relayer
+    mapping(address => address) private relayerBufferAddress;
+
+
     // EVENTS ECONOMICS GET
 
     event AveragePriceUpdated(
@@ -93,6 +98,13 @@ contract EconomicsGET is FoundationContract, ReentrancyGuardUpgradeable {
         uint256 indexed oldRelayerPrice,
         uint256 indexed newRelayerPrice
     );
+
+    event RelayerToppedUp(
+        address indexed relayerAddress,
+        uint256 indexed topUpAmount,
+        uint256 priceGETTopUp,
+        uint256 indexed newsiloprice
+    ); 
 
     event RelayerToppedUpBuffer(
         address indexed relayerAddress,
@@ -156,6 +168,11 @@ contract EconomicsGET is FoundationContract, ReentrancyGuardUpgradeable {
         uint256 newDepotBalance
     );
 
+    event RelayerBufferMapped(
+        address relayerAddress,
+        address bufferAddressRelayer
+    );
+
     // MODIFIERS ECONOMICSGET //
 
     modifier onlyConfigured(address _relayerAddress) {
@@ -183,6 +200,7 @@ contract EconomicsGET is FoundationContract, ReentrancyGuardUpgradeable {
 
         // storing the new configuration in gas effiicent manner
         DynamicRateStruct storage _rates = relayerRates[_relayerAddress];
+        _rates.configured = true;
         _rates.mintRate = dynamicRates[0]; // 1
         _rates.resellRate = dynamicRates[1]; // 2
         _rates.claimRate = dynamicRates[2]; // 3
@@ -196,8 +214,10 @@ contract EconomicsGET is FoundationContract, ReentrancyGuardUpgradeable {
         _rates.reserveSlot_1 = dynamicRates[10]; // 11
         _rates.reserveSlot_2 = dynamicRates[11]; // 12
 
-        isRelayerConfigured[_relayerAddress] = true;
-
+        if (relayerBufferAddress[_relayerAddress] != address(0x0)) {
+            isRelayerConfigured[_relayerAddress] = true;
+        }
+        
         _updateMintFactor(_relayerAddress, dynamicRates[0]);
 
         emit RelayerConfiguration(
@@ -205,6 +225,23 @@ contract EconomicsGET is FoundationContract, ReentrancyGuardUpgradeable {
             dynamicRates
         );
 
+    }
+
+    function setRelayerBuffer(
+        address _relayerAddress,
+        address _bufferAddressRelayer
+    ) external onlyAdmin {
+
+        relayerBufferAddress[_relayerAddress] = _bufferAddressRelayer;
+
+        if (relayerRates[_relayerAddress].configured == true) {
+            isRelayerConfigured[_relayerAddress] = true;
+        }
+
+        emit RelayerBufferMapped(
+            _relayerAddress,
+            _bufferAddressRelayer
+        );
     }
 
     /** clears out the configured dynamic rates of a relayer
@@ -278,42 +315,105 @@ contract EconomicsGET is FoundationContract, ReentrancyGuardUpgradeable {
         );
 
         return _newPrice;
-
-
+        
     }
 
-    /** @notice tops up the silo balance of a relayer, relayer itself pays the fuel tokens 
+    // /** @notice tops up the silo balance of a relayer, relayer itself pays the fuel tokens 
+    // @param _topUpAmount amount of fuel tokens that will be topped up
+    // @param _priceGETTopUp USD price per GET that is paid and will be locked
+    // @param _relayerAddress address of relayer
+    // */
+    // function topUpRelayer(
+    //         uint256 _topUpAmount,
+    //         uint256 _priceGETTopUp,
+    //         address _relayerAddress
+    //     ) external onlyAdmin nonReentrant onlyConfigured(_relayerAddress) returns(uint256) {
+
+    //         require(_topUpAmount > 0, "ZERO_TOPPED_UP");
+    //         require(_priceGETTopUp > 0 || _priceGETTopUp != 0, "INVALID_GET_PRICE");
+
+    //         // check if the relayer has enough fuel tokens on their address to topUp
+    //         require(
+    //             FUELTOKEN.balanceOf(
+    //                 _relayerAddress) >= _topUpAmount,
+    //             "BALANCE_TOO_LOW"
+    //         );           
+
+    //         // check if relayer has allowed the economicsGET contract to move tokens on their behalf
+    //         require(
+    //             FUELTOKEN.allowance(
+    //                 _relayerAddress, 
+    //                 address(this)) >= _topUpAmount,
+    //             "ALLOWANCE_FAILED_TOPUPGET"
+    //         );
+
+    //         // transfer fuel tokens from relayer address to economicsGET
+    //         (bool topUpFuel) = FUELTOKEN.transferFrom(
+    //             _relayerAddress,
+    //             address(this),
+    //             _topUpAmount
+    //         );
+    //         require(topUpFuel, "TRANSFER_FAILED_TOPUPGET");
+        
+    //         // update silo balance of the relayer
+    //         relayerSiloBalance[_relayerAddress] += _topUpAmount;
+
+    //         // update the average silo price, as the topUp might have effected the average DCA topup
+    //         uint256 _newSiloPrice = _calculateNewAveragePrice(_topUpAmount, _priceGETTopUp, _relayerAddress);
+
+    //         topUpsRelayerCount[_relayerAddress] += 1;
+
+    //         _storeTopUpReceipt(_relayerAddress, _priceGETTopUp, _topUpAmount, _newSiloPrice);
+
+    //         // as the silo price is updated, the mintFactor needs to be recalculated
+    //         _updateMintFactor(_relayerAddress, relayerRates[_relayerAddress].mintRate);
+
+    //         emit RelayerToppedUp(
+    //             _relayerAddress,
+    //             _topUpAmount,
+    //             _priceGETTopUp,
+    //             _newSiloPrice
+    //         );
+
+    //         // return the new silo balance
+    //         return relayerSiloBalance[_relayerAddress];
+        
+    // }
+
+
+    /** @notice tops up the silo balance of a relayer, buffer pays the fuel tokens 
     @param _topUpAmount amount of fuel tokens that will be topped up
     @param _priceGETTopUp USD price per GET that is paid and will be locked
     @param _relayerAddress address of relayer
     */
-    function topUpRelayer(
+    function topUpRelayerFromBuffer(
             uint256 _topUpAmount,
             uint256 _priceGETTopUp,
             address _relayerAddress
-        ) external onlyAdmin nonReentrant returns(uint256) {
+        ) external onlyAdmin nonReentrant onlyConfigured(_relayerAddress) returns(uint256) {
 
             require(_topUpAmount > 0, "ZERO_TOPPED_UP");
+            
             require(_priceGETTopUp > 0 || _priceGETTopUp != 0, "INVALID_GET_PRICE");
 
             // check if the relayer has enough fuel tokens on their address to topUp
             require(
                 FUELTOKEN.balanceOf(
-                    _relayerAddress) >= _topUpAmount,
-                "BALANCE_TOO_LOW"
+                   relayerBufferAddress[_relayerAddress]) >= _topUpAmount,
+                "BALANCE_BUFFER_TOO_LOW"
             );           
 
             // check if relayer has allowed the economicsGET contract to move tokens on their behalf
             require(
                 FUELTOKEN.allowance(
-                    _relayerAddress, 
+                    relayerBufferAddress[_relayerAddress], 
                     address(this)) >= _topUpAmount,
-                "ALLOWANCE_FAILED_TOPUPGET"
+                "ALLOWANCE_BUFFER_ERROR"
             );
 
-            // transfer fuel tokens from relayer address to economicsGET
+            // transfer fuel tokens from buffer address to economicsGET
             (bool topUpFuel) = FUELTOKEN.transferFrom(
-                _relayerAddress,
+                relayerBufferAddress[_relayerAddress],
                 address(this),
                 _topUpAmount
             );
@@ -533,22 +633,22 @@ contract EconomicsGET is FoundationContract, ReentrancyGuardUpgradeable {
     function swipeDepotBalance() external nonReentrant returns(uint256) {
         require(collectedDepot > 0, "NOTHING_TO_SWIPE");
 
-        // set the collected depot to zero, this is done before due to good practice surrounding re-entrancy
-        collectedDepot = 0;
-
-        uint256 _balanceDepot = FUELTOKEN.balanceOf(address(this));
+        uint256 _balanceContract = FUELTOKEN.balanceOf(address(this));
+        uint256 _balanceDepot = collectedDepot;
 
         // it is possible that people send GET 'for fun' to the depot contract, due to this we cannot rely on the fuel balance to exactly match the collectedDepot balance (even though it technicall needs to match)
-        require(_balanceDepot >= collectedDepot, "COLLECTED_BALANCE_INVALID");
+        require(_balanceContract >= collectedDepot, "COLLECTED_BALANCE_INVALID");
         
         // if stable transfer was successful, transferring the fractions to the buyer 
-        (bool swipeFuel) = FUELTOKEN.transfer(CONFIGURATION.feeCollectorAddress(),_balanceDepot);
+        (bool swipeFuel) = FUELTOKEN.transfer(CONFIGURATION.feeCollectorAddress(), _balanceDepot);
         require(swipeFuel, "SWIPEDEPOT_FAILED");
 
         emit DepotSwiped(
             CONFIGURATION.feeCollectorAddress(),
             _balanceDepot
         );
+
+        collectedDepot = 0;
 
         return _balanceDepot;
 

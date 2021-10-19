@@ -16,7 +16,7 @@ contract GETProtocolConfiguration is Initializable, ContextUpgradeable, OwnableU
     address payable public treasuryDAOAddress;
     address payable public stakingContractAddress;
     address payable public emergencyAddress; 
-    address payable public bufferAddress;
+    address payable public bufferAddressGlobal;
 
     address private proxyAdminAddress;
     address public AccessControlGET_proxy_address;
@@ -59,6 +59,7 @@ contract GETProtocolConfiguration is Initializable, ContextUpgradeable, OwnableU
     event UpdateStakingContract(address _old, address _new);
     event UpdateBasicTaxRate(uint256 _old, uint256 _new);
     event UpdateGETUSD(uint256 _old, uint256 _new);
+    event UpdateBufferGlobal(address _old, address _new);
 
     event UpdateLiquidityPoolAddress(
         address _oldPoolGETETH, 
@@ -66,19 +67,8 @@ contract GETProtocolConfiguration is Initializable, ContextUpgradeable, OwnableU
         address _newPoolGETETH, 
         address _newPoolUSDCETH
     );
-    
-
-    event SyncComplete(
-        address new_baseGETNFT_proxy_address,
-        address new_economicsGET_proxy_address,
-        address new_eventMetadataStorage_proxy_address,
-        address new_getEventFinancing_proxy_address,
-        address new_getNFT_ERC721_proxy_address,
-        address new_accesscontrol_proxy_address
-    );
 
     /// INITIALIZATION
-
 
     // this function only needs to be used once, after the initial deploy
     function setAllContractsStorageProxies(
@@ -259,20 +249,6 @@ contract GETProtocolConfiguration is Initializable, ContextUpgradeable, OwnableU
         // UPDATE FINANCING 
         require(IsyncConfiguration(getEventFinancing_proxy_address).syncConfiguration(), "FAILED_UPDATE_FINANCE");
 
-        // // UPDATE ERC721
-        // require(IsyncConfiguration(getNFT_ERC721_proxy_address).syncConfiguration(), "FAILED_UPDATE_ERC721");
-
-        // ACCESSCONTROL DOESNT NEED TO BE UPDATED, SINCE THE CONTRACT IS UNAWARE OF OTHER CONTRACTS
-
-        emit SyncComplete(
-            baseGETNFT_proxy_address,
-            economicsGET_proxy_address,
-            eventMetadataStorage_proxy_address,
-            getEventFinancing_proxy_address,
-            getNFT_ERC721_proxy_address,
-            AccessControlGET_proxy_address
-        );
-
     }
 
     // MANAGING GLOBAL VALUES
@@ -302,15 +278,15 @@ contract GETProtocolConfiguration is Initializable, ContextUpgradeable, OwnableU
         
     }    
 
-    function setBufferAddress(
-        address payable _newBuffer
+    function setBufferAddressGlobal(
+        address payable _newBufferGlobal
     ) external onlyOwner {
 
-        require(_newBuffer != address(0), "_newBuffer cannot be burn address");
+        require(_newBufferGlobal != address(0), "_newBuffer cannot be burn address");
         
-        // emit updateFeeCollector(feeCollectorAddress, _newFeeCollector); TODO ADD EVENT
+        emit UpdateBufferGlobal(bufferAddressGlobal, _newBufferGlobal);
 
-        bufferAddress = _newBuffer;
+        bufferAddressGlobal = _newBufferGlobal;
         
     }    
 
