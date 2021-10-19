@@ -7,6 +7,7 @@ import "./interfaces/IBasketVault.sol";
 contract BaseGET is FoundationContract {
 
     bool public onChainEconomics;
+    uint256 private refactorSwapIndex;
 
     function __BaseGETNFT_init_unchained() internal initializer {
         onChainEconomics = false;
@@ -95,18 +96,24 @@ contract BaseGET is FoundationContract {
         uint64 indexed orderTime
     );
 
-    event EconomicsFlipped(bool stateOfSwitch);
+    event EconomicsFlipped(
+        bool stateOfSwitch,
+        uint256 refactorSwapIndex    
+    );
 
     // OPERATIONAL FUNCTION
 
     function setOnChainSwitch(
-        bool _switchState
+        bool _switchState,
+        uint256 _refactorSwapIndex
     ) external onlyAdmin {
 
         emit EconomicsFlipped(
-            _switchState
+            _switchState,
+            _refactorSwapIndex
         );
 
+        refactorSwapIndex = _refactorSwapIndex;
         onChainEconomics = _switchState;
 
     }
@@ -197,10 +204,10 @@ contract BaseGET is FoundationContract {
 
         uint256 _nftIndex = GET_ERC721.tokenOfOwnerByIndex(_originAddress, 0);
 
-        require(isNFTSellable(_nftIndex, _originAddress), "RESALE_ERROR");
-
+        // require(isNFTSellable(_nftIndex, _originAddress), "RESALE_ERROR");
+    
         _ticketData[_nftIndex].salePrices[1] = uint32(_secondaryPrice);
-        
+
         GET_ERC721.relayerTransferFrom(
             _originAddress, 
             _destinationAddress, 
@@ -215,6 +222,7 @@ contract BaseGET is FoundationContract {
         );
     
     }
+
 
     /** finalScan / permanent scan function
     @param _originAddress address that own the NFT
@@ -243,7 +251,6 @@ contract BaseGET is FoundationContract {
             if (onChainEconomics) { // transfer all the GET in the backpack to the feeCollector
                 _fueled = ECONOMICS.emptyBackpackBasic(_nftIndex);
             }
-            
         
             _ticketData[_nftIndex].state = TicketStates.CLAIMABLE;
 
@@ -305,8 +312,6 @@ contract BaseGET is FoundationContract {
         uint256 _orderTime) external onlyRelayer {
         
         uint256 _nftIndex = GET_ERC721.tokenOfOwnerByIndex(_originAddress, 0);
-
-        require(_ticketData[_nftIndex].state != TicketStates.INVALIDATED, "DOUBLE_INVALIDATION");
         
         uint256 _fueled = 0;
 
@@ -318,7 +323,7 @@ contract BaseGET is FoundationContract {
 
         emit TicketInvalidated(
             _nftIndex, 
-            0,
+            uint64(_fueled),
             uint64(_orderTime)
         );
     } 
@@ -335,7 +340,7 @@ contract BaseGET is FoundationContract {
 
         uint256 _nftIndex = GET_ERC721.tokenOfOwnerByIndex(_originAddress, 0); // fetch the index of the NFT
 
-        require(isNFTClaimable(_nftIndex, _originAddress), "CLAIM_NOT_ALLOWED");
+        // require(isNFTClaimable(_nftIndex, _originAddress), "CLAIM_NOT_ALLOWED");
 
         /// Transfer the NFT to destinationAddress
         GET_ERC721.relayerTransferFrom(
@@ -395,13 +400,20 @@ contract BaseGET is FoundationContract {
     */
     function isNFTClaimable(
         uint256 _nftIndex,
+        
         address _originAddress
     ) public view returns(bool _claim) {
 
-        if ((_ticketData[_nftIndex].state == TicketStates.CLAIMABLE) && (GET_ERC721.ownerOf(_nftIndex) == _originAddress)) {
+        if (_nftIndex < refactorSwapIndex) {
             return true;
         }
-        return false;
+
+        else if ((_ticketData[_nftIndex].state == TicketStates.CLAIMABLE) && (GET_ERC721.ownerOf(_nftIndex) == _originAddress)) {
+            return true;
+        }
+        else {
+            return false;
+        }
     }
 
     /** Returns if an getNFT can be resold
@@ -413,10 +425,16 @@ contract BaseGET is FoundationContract {
         address _originAddress
     ) public view returns(bool _sell) {
 
-         if ((_ticketData[_nftIndex].state == TicketStates.UNSCANNED) && (GET_ERC721.ownerOf(_nftIndex) == _originAddress)) {
+        if (_nftIndex < refactorSwapIndex) {
+            return true;
+         }
+
+         else if ((_ticketData[_nftIndex].state == TicketStates.UNSCANNED) && (GET_ERC721.ownerOf(_nftIndex) == _originAddress)) {
              return true;
          } 
-         return false;
+         else {
+            return false;
+         }
     }
 
     /** Returns getNFT metadata by current owner (EOA address)
