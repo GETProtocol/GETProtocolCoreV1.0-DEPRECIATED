@@ -51,7 +51,8 @@ interface IBaseGET {
      ) external;
 
     function setOnChainSwitch(
-        bool _switchState
+        bool _switchState,
+        uint256 _refactorSwapIndex
     ) external;
     
     /// VIEW FUNCTIONS

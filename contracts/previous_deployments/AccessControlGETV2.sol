@@ -473,7 +473,7 @@ contract AccessControlGETV2 is Initializable, AccessControlUpgradeable {
         _setupRole(RELAYER_ROLE, _msgSender());
     }
 
-    function setRoleAdmin(bytes32 roleId, bytes32 adminRoleId) public onlyRole(GET_GOVERNANCE) {
+    function setRoleAdmin(bytes32 roleId, bytes32 adminRoleId) public onlyRole(DEFAULT_ADMIN_ROLE) {
         _setRoleAdmin(roleId, adminRoleId);
     }
 
