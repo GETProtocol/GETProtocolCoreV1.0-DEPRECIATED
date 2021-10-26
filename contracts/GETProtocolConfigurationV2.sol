@@ -9,7 +9,7 @@ import "./interfaces/IsyncConfiguration.sol";
 import "./interfaces/IGETProtocolConfiguration.sol";
 import "./interfaces/IUniswapV2Pair.sol";
 
-contract GETProtocolConfiguration is Initializable, ContextUpgradeable, OwnableUpgradeable {
+contract GETProtocolConfigurationV2 is Initializable, ContextUpgradeable, OwnableUpgradeable {
 
     address public GETgovernanceAddress;
     address payable public feeCollectorAddress; 
@@ -18,7 +18,9 @@ contract GETProtocolConfiguration is Initializable, ContextUpgradeable, OwnableU
     address payable public emergencyAddress; 
     address payable public bufferAddressGlobal;
 
-    address private proxyAdminAddress;
+    // address private proxyAdminAddress; old
+    address private priceOracleAddress;
+
     address public AccessControlGET_proxy_address;
     address public baseGETNFT_proxy_address;
     address public getNFT_ERC721_proxy_address;
@@ -32,6 +34,7 @@ contract GETProtocolConfiguration is Initializable, ContextUpgradeable, OwnableU
 
     /// GET and USD price oracle/price feed configurations (work in progress)
     uint256 public priceGETUSD; // x1000
+
     IUniswapV2Pair public liquidityPoolGETETH;
     IUniswapV2Pair public liquidityPoolETHUSDC;
 
@@ -52,14 +55,15 @@ contract GETProtocolConfiguration is Initializable, ContextUpgradeable, OwnableU
     event UpdateFinancing(address _old, address _new);
     event UpdateEconomics(address _old, address _new);
     event UpdateFueltoken(address _old, address _new);
+    event UpdatePriceOracle(address _old, address _new);
 
     event UpdateGoverance(address _old, address _new);
     event UpdateFeeCollector(address _old, address _new);
     event UpdateTreasuryDAO(address _old, address _new);
     event UpdateStakingContract(address _old, address _new);
     event UpdateBasicTaxRate(uint256 _old, uint256 _new);
-    event UpdateGETUSD(uint256 _old, uint256 _new);
     event UpdateBufferGlobal(address _old, address _new);
+    event UpdateGETUSD(uint256 _old, uint256 _new);
 
     event UpdateLiquidityPoolAddress(
         address _oldPoolGETETH, 
@@ -120,6 +124,9 @@ contract GETProtocolConfiguration is Initializable, ContextUpgradeable, OwnableU
         _callSync();
 
     }
+
+
+
 
     function setBASEProxy(
         address _base_proxy) external onlyOwner {
@@ -183,6 +190,24 @@ contract GETProtocolConfiguration is Initializable, ContextUpgradeable, OwnableU
         );
 
         getEventFinancing_proxy_address = _financing_proxy;
+
+        // sync the change across all proxies
+        _callSync();
+
+    }
+
+
+    function setPriceOracle(
+        address _price_oracle_new) external onlyOwner {
+        
+        require(isContract(_price_oracle_new), "new _price_oracle is not a contract");
+
+        emit UpdatePriceOracle(
+            priceOracleAddress, 
+            _price_oracle_new
+        );
+
+        priceOracleAddress = _price_oracle_new;
 
         // sync the change across all proxies
         _callSync();
@@ -266,6 +291,19 @@ contract GETProtocolConfiguration is Initializable, ContextUpgradeable, OwnableU
         
     }
 
+
+    function setGETUSDPrice(
+        uint256 _newGETUSDPrice
+    ) external {
+
+        require(msg.sender == priceOracleAddress, "ONLY_ORACLE_CAN_UPDATE");
+
+        emit UpdateGETUSD(priceGETUSD, _newGETUSDPrice);
+        
+        priceGETUSD = _newGETUSDPrice;
+        
+    }
+
     function setFeeCollector(
         address payable _newFeeCollector
     ) external onlyOwner {
@@ -338,20 +376,9 @@ contract GETProtocolConfiguration is Initializable, ContextUpgradeable, OwnableU
         priceGETUSD = _newGETUSD;
     }
 
-    // function setLiquidityPoolAddresses(
-    //     address _poolGETETH,
-    //     address _poolUSDCETH
-    // ) external onlyOwner {
-    //     liquidityPoolGETETH = IUniswapV2Pair(_poolGETETH);
-    //     liquidityPoolETHUSDC = IUniswapV2Pair(_poolUSDCETH);
-        
-    //     emit UpdateLiquidityPoolAddress(
-    //         liquidityPoolGETETH,
-    //         liquidityPoolETHUSDC,
-    //         _poolGETETH,
-    //         _poolUSDCETH
-    //     );
-    // }    
+    function viewOracleContract() public view returns(address) {
+        return priceOracleAddress;
+    }
 
     function isContract(address account) internal view returns (bool) {
         // This method relies on extcodesize, which returns 0 for contracts in

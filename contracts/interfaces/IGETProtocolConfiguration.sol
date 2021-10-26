@@ -10,7 +10,6 @@ interface IGETProtocolConfiguration {
     function emergencyAddress() external view returns(address);
     function bufferAddress() external view returns(address);
 
-
     function AccessControlGET_proxy_address() external view returns(address);
     function baseGETNFT_proxy_address() external view returns(address);
     function getNFT_ERC721_proxy_address() external view returns(address);
@@ -20,7 +19,6 @@ interface IGETProtocolConfiguration {
     function fueltoken_get_address() external view returns(address);
 
     function basicTaxRate() external view returns(uint256);
-    
     function priceGETUSD() external view returns(uint256);
 
     function setAllContractsStorageProxies(

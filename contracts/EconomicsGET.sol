@@ -18,7 +18,6 @@ contract EconomicsGET is FoundationContract, ReentrancyGuardUpgradeable {
         __EconomicsGET_init_unchained();
     }
 
-
     // data structure containing all the different rates for a particular relayer
     // 100% (1) 10000, 10% (0.1) = 1000, 1% (0.01) = 100, 0.1% (0.001) = 10, 0.01% (0.0001) ---> scaled by 10 000
     // USD values (min, max) are scaled by 1000
@@ -89,7 +88,6 @@ contract EconomicsGET is FoundationContract, ReentrancyGuardUpgradeable {
 
     // mapping between buffer and relayer
     mapping(address => address) private relayerBufferAddress;
-
 
     // EVENTS ECONOMICS GET
 
@@ -234,6 +232,7 @@ contract EconomicsGET is FoundationContract, ReentrancyGuardUpgradeable {
 
         relayerBufferAddress[_relayerAddress] = _bufferAddressRelayer;
 
+
         if (relayerRates[_relayerAddress].configured == true) {
             isRelayerConfigured[_relayerAddress] = true;
         }
@@ -317,68 +316,6 @@ contract EconomicsGET is FoundationContract, ReentrancyGuardUpgradeable {
         return _newPrice;
         
     }
-
-    // /** @notice tops up the silo balance of a relayer, relayer itself pays the fuel tokens 
-    // @param _topUpAmount amount of fuel tokens that will be topped up
-    // @param _priceGETTopUp USD price per GET that is paid and will be locked
-    // @param _relayerAddress address of relayer
-    // */
-    // function topUpRelayer(
-    //         uint256 _topUpAmount,
-    //         uint256 _priceGETTopUp,
-    //         address _relayerAddress
-    //     ) external onlyAdmin nonReentrant onlyConfigured(_relayerAddress) returns(uint256) {
-
-    //         require(_topUpAmount > 0, "ZERO_TOPPED_UP");
-    //         require(_priceGETTopUp > 0 || _priceGETTopUp != 0, "INVALID_GET_PRICE");
-
-    //         // check if the relayer has enough fuel tokens on their address to topUp
-    //         require(
-    //             FUELTOKEN.balanceOf(
-    //                 _relayerAddress) >= _topUpAmount,
-    //             "BALANCE_TOO_LOW"
-    //         );           
-
-    //         // check if relayer has allowed the economicsGET contract to move tokens on their behalf
-    //         require(
-    //             FUELTOKEN.allowance(
-    //                 _relayerAddress, 
-    //                 address(this)) >= _topUpAmount,
-    //             "ALLOWANCE_FAILED_TOPUPGET"
-    //         );
-
-    //         // transfer fuel tokens from relayer address to economicsGET
-    //         (bool topUpFuel) = FUELTOKEN.transferFrom(
-    //             _relayerAddress,
-    //             address(this),
-    //             _topUpAmount
-    //         );
-    //         require(topUpFuel, "TRANSFER_FAILED_TOPUPGET");
-        
-    //         // update silo balance of the relayer
-    //         relayerSiloBalance[_relayerAddress] += _topUpAmount;
-
-    //         // update the average silo price, as the topUp might have effected the average DCA topup
-    //         uint256 _newSiloPrice = _calculateNewAveragePrice(_topUpAmount, _priceGETTopUp, _relayerAddress);
-
-    //         topUpsRelayerCount[_relayerAddress] += 1;
-
-    //         _storeTopUpReceipt(_relayerAddress, _priceGETTopUp, _topUpAmount, _newSiloPrice);
-
-    //         // as the silo price is updated, the mintFactor needs to be recalculated
-    //         _updateMintFactor(_relayerAddress, relayerRates[_relayerAddress].mintRate);
-
-    //         emit RelayerToppedUp(
-    //             _relayerAddress,
-    //             _topUpAmount,
-    //             _priceGETTopUp,
-    //             _newSiloPrice
-    //         );
-
-    //         // return the new silo balance
-    //         return relayerSiloBalance[_relayerAddress];
-        
-    // }
 
 
     /** @notice tops up the silo balance of a relayer, buffer pays the fuel tokens 
@@ -763,4 +700,11 @@ contract EconomicsGET is FoundationContract, ReentrancyGuardUpgradeable {
     function viewDepotValue() external view returns(uint256) {
         return (collectedDepot * CONFIGURATION.priceGETUSD()) / 1_00000_00000_00000_000;
     }
+
+    function viewBufferOfRelayer(
+        address _relayerAddress
+    ) public view returns (address) {
+        return relayerBufferAddress[_relayerAddress];
+    }
+
 }

@@ -484,10 +484,7 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
 contract MockGET is ERC20 {
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-    string public _name = "GET Protocol - ticket fuel token (GET)";
-    string public _symbol = "mockGET";
-
-    constructor() payable ERC20(_name, _symbol) {
+    constructor(string memory _name, string memory _symbol) payable ERC20(_name, _symbol) {
     }
 
     function mint(address account, uint256 amount) public {

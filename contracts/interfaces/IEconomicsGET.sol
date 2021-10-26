@@ -3,7 +3,8 @@ pragma solidity ^0.8.0;
 
 interface IEconomicsGET {
 
-    struct dynamicRateStruct {
+    struct DynamicRateStruct {
+        bool configured; // 0
         uint16 mint_rate; // 1
         uint16 resell_rate; // 2
         uint16 claim_rate; // 3
@@ -34,8 +35,6 @@ interface IEconomicsGET {
 
     function swipeDepotBalance() external returns(uint256);
 
-    function emergencyWithdrawFuel() external;
-
     function topUpBuffer(
             uint256 topUpAmount,
             uint256 priceGETTopUp,
@@ -43,11 +42,10 @@ interface IEconomicsGET {
             address bufferAddress
     ) external returns(uint256);
 
-    function topUpRelayer(
-            uint256 topUpAmount,
-            uint256 priceGETTopUp,
-            address relayerAddress
-    ) external returns(uint256);
+    function setRelayerBuffer(
+        address _relayerAddress,
+        address _bufferAddressRelayer
+    ) external;
 
     /// VIEW FUNCTIONS
 
