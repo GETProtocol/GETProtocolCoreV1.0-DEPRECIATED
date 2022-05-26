@@ -1,6 +1,8 @@
 
-# GET Protocol Contracts
+# GET Protocol Contracts (DEPRECIATED / OLD VERSION)
 Technical documentation coverting the GET Protocols contracts. Issuing getNFT (digital twins of event tickets). 
+
+Note: The contracts in this repo represent the OLD NFT minting contracts. Our new code base is currently undergoing its final checks. The code in this repo is NOT representitive of GET Protocols smart contract stack (regarding both ticketing as event financing). 
 
 ## Deployed Contracts 
 In the tables the address of protocols contracts are detailed. 
